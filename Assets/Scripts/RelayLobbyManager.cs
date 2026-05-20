@@ -7,34 +7,42 @@ using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using System.Threading.Tasks;
 
-
 public class RelayLobbyManager : MonoBehaviour
 {
     public static RelayLobbyManager Instance;
 
     private UnityTransport transport;
 
-    private void Awake()
+    async void Awake()
     {
-        if (Instance != null) { Destroy(gameObject); return; }
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
         transport = FindFirstObjectByType<UnityTransport>();
-    }
 
-    async void Start()
-    {
         await UnityServices.InitializeAsync();
+
         if (!AuthenticationService.Instance.IsSignedIn)
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+        Debug.Log("Unity Services initialized.");
     }
+
+    // HOST
 
     public async Task<string> CreateRelay(int maxPlayers = 2)
     {
-        Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
-        string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+        Allocation allocation =
+            await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
+
+        string joinCode =
+            await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
         transport.SetHostRelayData(
             allocation.RelayServer.IpV4,
@@ -46,8 +54,12 @@ public class RelayLobbyManager : MonoBehaviour
 
         NetworkManager.Singleton.StartHost();
 
+        Debug.Log("HOST STARTED");
+
         return joinCode;
     }
+
+    // CLIENT
 
     public async Task JoinRelay(string joinCode)
     {
@@ -64,5 +76,7 @@ public class RelayLobbyManager : MonoBehaviour
         );
 
         NetworkManager.Singleton.StartClient();
+
+        Debug.Log("CLIENT STARTED");
     }
 }
