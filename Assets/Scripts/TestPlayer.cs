@@ -7,11 +7,15 @@ public class TestPlayer : NetworkBehaviour
 {
     public float moveSpeed = 5f;
 
-    Rigidbody rb;
+    private Rigidbody rb;
+    private Vector3 moveInput;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+
+        rb.useGravity = true;
+        rb.isKinematic = false;
     }
 
     public override void OnNetworkSpawn()
@@ -20,52 +24,68 @@ public class TestPlayer : NetworkBehaviour
 
         CreateCamera();
 
-        GetComponent<Renderer>().material.color =
-            OwnerClientId == 0 ? Color.blue : Color.red;
+        Renderer rend = GetComponent<Renderer>();
+
+        if (rend != null)
+        {
+            rend.material.color =
+                OwnerClientId == 0 ? Color.blue : Color.red;
+        }
     }
 
     void Update()
     {
         if (!IsOwner) return;
 
-        Vector3 move = Vector3.zero;
+        moveInput = Vector3.zero;
 
         if (Keyboard.current.wKey.isPressed)
-            move.z += 1;
+            moveInput.z += 1;
 
         if (Keyboard.current.sKey.isPressed)
-            move.z -= 1;
+            moveInput.z -= 1;
 
         if (Keyboard.current.aKey.isPressed)
-            move.x -= 1;
+            moveInput.x -= 1;
 
         if (Keyboard.current.dKey.isPressed)
-            move.x += 1;
+            moveInput.x += 1;
 
-        move.Normalize();
+        moveInput.Normalize();
+    }
+
+    void FixedUpdate()
+    {
+        if (!IsOwner) return;
 
         rb.linearVelocity = new Vector3(
-            move.x * moveSpeed,
+            moveInput.x * moveSpeed,
             rb.linearVelocity.y,
-            move.z * moveSpeed
+            moveInput.z * moveSpeed
         );
     }
 
     void CreateCamera()
     {
-        GameObject cam = new GameObject("PlayerCamera");
+        Camera existingCam = Camera.main;
 
-        Camera camera = cam.AddComponent<Camera>();
+        if (existingCam != null)
+        {
+            existingCam.transform.SetParent(transform);
 
-        cam.transform.position =
-            transform.position + new Vector3(0, 10, -10);
+            existingCam.transform.localPosition =
+                new Vector3(0, 10, -10);
 
-        cam.transform.rotation =
-            Quaternion.Euler(35, 0, 0);
+            existingCam.transform.localRotation =
+                Quaternion.Euler(35, 0, 0);
 
-        CameraFollow follow =
-            cam.AddComponent<CameraFollow>();
+            CameraFollow follow =
+                existingCam.GetComponent<CameraFollow>();
 
-        follow.target = transform;
+            if (follow == null)
+                follow = existingCam.gameObject.AddComponent<CameraFollow>();
+
+            follow.target = transform;
+        }
     }
 }

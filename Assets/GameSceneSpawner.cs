@@ -3,24 +3,35 @@ using Unity.Netcode;
 
 public class GameSceneSpawner : NetworkBehaviour
 {
+    [Header("Player Prefab")]
     [SerializeField] private GameObject playerPrefab;
 
+    [Header("Spawn Points")]
     [SerializeField] private Transform hostSpawn;
+
     [SerializeField] private Transform clientSpawn;
 
     public override void OnNetworkSpawn()
     {
         if (!IsServer) return;
 
-        SpawnPlayers();
+        SpawnAllPlayers();
     }
 
-    private void SpawnPlayers()
+    private void SpawnAllPlayers()
     {
         foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
         {
             Transform spawnPoint =
-                clientId == 0 ? hostSpawn : clientSpawn;
+                clientId == NetworkManager.ServerClientId
+                ? hostSpawn
+                : clientSpawn;
+
+            if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null)
+            {
+                NetworkManager.Singleton.ConnectedClients[clientId]
+                    .PlayerObject.Despawn(true);
+            }
 
             GameObject player = Instantiate(
                 playerPrefab,
@@ -28,8 +39,12 @@ public class GameSceneSpawner : NetworkBehaviour
                 spawnPoint.rotation
             );
 
-            player.GetComponent<NetworkObject>()
-                  .SpawnAsPlayerObject(clientId);
+            NetworkObject netObj =
+                player.GetComponent<NetworkObject>();
+
+            netObj.SpawnAsPlayerObject(clientId, true);
+
+            Debug.Log($"Spawned player for client: {clientId}");
         }
     }
 }

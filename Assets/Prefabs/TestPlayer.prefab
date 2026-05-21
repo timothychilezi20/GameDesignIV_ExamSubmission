@@ -15,7 +15,6 @@ GameObject:
   - component: {fileID: 3687401858901818508}
   - component: {fileID: 3812077384105857296}
   - component: {fileID: 3337318445273301355}
-  - component: {fileID: 4464396635612207401}
   - component: {fileID: 1777871934469839869}
   m_Layer: 0
   m_Name: TestPlayer
@@ -216,24 +215,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 1
   m_Constraints: 0
-  m_CollisionDetection: 0
---- !u!114 &4464396635612207401
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7716202587059632422}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody
-  ShowTopMostFoldoutHeaderGroup: 1
-  NetworkRigidbodyBaseExpanded: 0
-  UseRigidBodyForMotion: 0
-  AutoUpdateKinematicState: 1
-  AutoSetKinematicOnDespawn: 1
+  m_CollisionDetection: 1
 --- !u!114 &1777871934469839869
 MonoBehaviour:
   m_ObjectHideFlags: 0
