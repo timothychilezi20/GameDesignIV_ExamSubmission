@@ -27,14 +27,46 @@ public class MainMenuUI : MonoBehaviour
 
     public async void OnHostClicked()
     {
+        Debug.Log("Host button clicked");
+
+        if (RelayLobbyManager.Instance == null)
+        {
+            Debug.LogError("RelayLobbyManager.Instance is NULL!");
+            return;
+        }
+
+        Debug.Log("Relay manager exists");
+
         string code =
             await RelayLobbyManager.Instance.CreateRelay();
 
+        Debug.Log("Relay created");
+
+        if (codeDisplay == null)
+        {
+            Debug.LogError("Code Display is NULL!");
+            return;
+        }
+
         codeDisplay.text = "JOIN CODE: " + code;
+
+        if (statusText == null)
+        {
+            Debug.LogError("Status Text is NULL!");
+            return;
+        }
 
         statusText.text = "Waiting for player...";
 
+        if (startButton == null)
+        {
+            Debug.LogError("Start Button is NULL!");
+            return;
+        }
+
         startButton.SetActive(true);
+
+        Debug.Log("Everything succeeded");
     }
 
     // CLIENT
@@ -82,7 +114,7 @@ public class MainMenuUI : MonoBehaviour
         }
 
         NetworkManager.Singleton.SceneManager.LoadScene(
-            "Game",
+            "SampleScene",
             LoadSceneMode.Single
         );
     }

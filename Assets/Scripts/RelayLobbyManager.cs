@@ -15,26 +15,33 @@ public class RelayLobbyManager : MonoBehaviour
 
     async void Awake()
     {
-        if (Instance != null)
+        // Singleton
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
         Instance = this;
+
         DontDestroyOnLoad(gameObject);
 
+        Debug.Log("RelayLobbyManager Awake");
+
+        // Transport
         transport = FindFirstObjectByType<UnityTransport>();
 
+        // Unity Services
         await UnityServices.InitializeAsync();
 
+        // Authentication
         if (!AuthenticationService.Instance.IsSignedIn)
+        {
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        }
 
-        Debug.Log("Unity Services initialized.");
+        Debug.Log("Unity Services Initialized");
     }
-
-    // HOST
 
     public async Task<string> CreateRelay(int maxPlayers = 2)
     {
@@ -58,8 +65,6 @@ public class RelayLobbyManager : MonoBehaviour
 
         return joinCode;
     }
-
-    // CLIENT
 
     public async Task JoinRelay(string joinCode)
     {
