@@ -1,115 +1,118 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.SceneManagement;
 
 public class MainMenuUI : MonoBehaviour
 {
-    public TMP_InputField joinCodeInput;
-    public TMP_Text codeDisplay;
-    public TMP_Text statusText;
+    [Header("Panels")]
+    [SerializeField] private GameObject titleScreenPanel;
+    [SerializeField] private GameObject controlsPanel;
+    [SerializeField] private GameObject lobbyPanel;
+    [SerializeField] private GameObject hostPanel;
+    [SerializeField] private GameObject clientPanel;
 
-    public GameObject startButton;
+    [Header("Host UI")]
+    [SerializeField] private TMP_Text joinCodeText;
+    [SerializeField] private GameObject startGameButton;
 
-    private void Start()
+    [Header("Client UI")]
+    [SerializeField] private TMP_InputField joinCodeInput;
+
+    [Header("Status")]
+    [SerializeField] private TMP_Text statusText;
+
+    void Start()
     {
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
-
-        if (startButton != null)
-            startButton.SetActive(false);
-
-        if (NetworkManager.Singleton != null)
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        ShowTitleScreen();
     }
 
-    // HOST
+    // =====================================================
+    // TITLE SCREEN
+    // =====================================================
 
-    public async void OnHostClicked()
+    public void OpenLobby()
     {
-        Debug.Log("Host button clicked");
+        titleScreenPanel.SetActive(false);
 
-        if (RelayLobbyManager.Instance == null)
-        {
-            Debug.LogError("RelayLobbyManager.Instance is NULL!");
-            return;
-        }
+        controlsPanel.SetActive(false);
+        hostPanel.SetActive(false);
+        clientPanel.SetActive(false);
 
-        Debug.Log("Relay manager exists");
+        lobbyPanel.SetActive(true);
+    }
+
+    public void OpenControls()
+    {
+        titleScreenPanel.SetActive(false);
+
+        lobbyPanel.SetActive(false);
+        hostPanel.SetActive(false);
+        clientPanel.SetActive(false);
+
+        controlsPanel.SetActive(true);
+    }
+
+    // =====================================================
+    // HOST
+    // =====================================================
+
+    public async void OnHostPressed()
+    {
+        lobbyPanel.SetActive(false);
+        hostPanel.SetActive(true);
 
         string code =
             await RelayLobbyManager.Instance.CreateRelay();
 
-        Debug.Log("Relay created");
+        joinCodeText.text =
+            "" + code;
 
-        if (codeDisplay == null)
-        {
-            Debug.LogError("Code Display is NULL!");
-            return;
-        }
+        startGameButton.SetActive(true);
 
-        codeDisplay.text = "JOIN CODE: " + code;
-
-        if (statusText == null)
-        {
-            Debug.LogError("Status Text is NULL!");
-            return;
-        }
-
-        statusText.text = "Waiting for player...";
-
-        if (startButton == null)
-        {
-            Debug.LogError("Start Button is NULL!");
-            return;
-        }
-
-        startButton.SetActive(true);
-
-        Debug.Log("Everything succeeded");
+        statusText.text =
+            "Waiting for player...";
     }
 
-    // CLIENT
+    // =====================================================
+    // JOIN
+    // =====================================================
 
-    public async void OnJoinClicked()
+    public void OnJoinPressed()
     {
-        if (string.IsNullOrWhiteSpace(joinCodeInput.text))
+        lobbyPanel.SetActive(false);
+        clientPanel.SetActive(true);
+    }
+
+    public async void OnConnectPressed()
+    {
+        string code = joinCodeInput.text;
+
+        if (string.IsNullOrEmpty(code))
         {
             statusText.text = "Enter a code!";
             return;
         }
 
-        statusText.text = "Connecting...";
+        await RelayLobbyManager.Instance.JoinRelay(code);
 
-        await RelayLobbyManager.Instance.JoinRelay(
-            joinCodeInput.text
-        );
-
-        statusText.text = "Connected!\nWaiting for host...";
+        statusText.text =
+            "Connected!";
     }
 
-    // CONNECTION
-
-    private void OnClientConnected(ulong id)
-    {
-        Debug.Log("Connected client: " + id);
-
-        if (NetworkManager.Singleton.IsHost)
-        {
-            statusText.text = "Player Joined!\nReady to start.";
-        }
-    }
-
+    // =====================================================
     // START GAME
+    // =====================================================
 
-    public void OnStartGameClicked()
+    public void StartGame()
     {
         if (!NetworkManager.Singleton.IsHost)
             return;
 
         if (NetworkManager.Singleton.ConnectedClientsList.Count < 2)
         {
-            statusText.text = "Need 2 players!";
+            statusText.text =
+                "Waiting for second player...";
             return;
         }
 
@@ -117,5 +120,41 @@ public class MainMenuUI : MonoBehaviour
             "SampleScene",
             LoadSceneMode.Single
         );
+    }
+
+    // =====================================================
+    // BACK BUTTON
+    // =====================================================
+
+    public void BackToTitle()
+    {
+        // If currently connected, disconnect safely
+        if (NetworkManager.Singleton != null &&
+            (NetworkManager.Singleton.IsHost ||
+             NetworkManager.Singleton.IsClient))
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        ShowTitleScreen();
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    private void ShowTitleScreen()
+    {
+        titleScreenPanel.SetActive(true);
+
+        controlsPanel.SetActive(false);
+        lobbyPanel.SetActive(false);
+        hostPanel.SetActive(false);
+        clientPanel.SetActive(false);
+
+        joinCodeInput.text = "";
+        joinCodeText.text = "";
+
+        statusText.text = "";
     }
 }
