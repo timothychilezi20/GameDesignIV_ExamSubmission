@@ -117,7 +117,7 @@ public class MainMenuUI : MonoBehaviour
         }
 
         NetworkManager.Singleton.SceneManager.LoadScene(
-            "SampleScene",
+            "TimothyScene",
             LoadSceneMode.Single
         );
     }

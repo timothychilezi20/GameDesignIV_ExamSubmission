@@ -8,30 +8,24 @@ public class GameSceneSpawner : NetworkBehaviour
 
     [Header("Spawn Points")]
     [SerializeField] private Transform hostSpawn;
-
     [SerializeField] private Transform clientSpawn;
 
     public override void OnNetworkSpawn()
     {
+        // Only server spawns players
         if (!IsServer) return;
 
-        SpawnAllPlayers();
+        SpawnPlayers();
     }
 
-    private void SpawnAllPlayers()
+    private void SpawnPlayers()
     {
         foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
         {
             Transform spawnPoint =
-                clientId == NetworkManager.ServerClientId
+                clientId == 0
                 ? hostSpawn
                 : clientSpawn;
-
-            if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null)
-            {
-                NetworkManager.Singleton.ConnectedClients[clientId]
-                    .PlayerObject.Despawn(true);
-            }
 
             GameObject player = Instantiate(
                 playerPrefab,
@@ -39,12 +33,10 @@ public class GameSceneSpawner : NetworkBehaviour
                 spawnPoint.rotation
             );
 
-            NetworkObject netObj =
-                player.GetComponent<NetworkObject>();
+            player.GetComponent<NetworkObject>()
+                .SpawnAsPlayerObject(clientId, true);
 
-            netObj.SpawnAsPlayerObject(clientId, true);
-
-            Debug.Log($"Spawned player for client: {clientId}");
+            Debug.Log("Spawned player for ClientId: " + clientId);
         }
     }
 }

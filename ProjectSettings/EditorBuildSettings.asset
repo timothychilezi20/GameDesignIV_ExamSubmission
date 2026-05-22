@@ -9,9 +9,12 @@ EditorBuildSettings:
     path: Assets/Scenes/MainMenu.unity
     guid: e818fcff499a44e49acc2581f20e770e
   - enabled: 1
+    path: Assets/Scenes/TimothyScene.unity
+    guid: 958635381bae8f247a2cf3c10c2c5d0e
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Apayin.unity
     guid: b0ab5af43edcf5d48b6a8a740782d9b6
   m_configObjects:
