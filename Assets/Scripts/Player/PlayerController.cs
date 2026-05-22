@@ -1,120 +1,130 @@
 using UnityEngine;
 using Unity.Netcode;
+using UnityEngine.InputSystem;
 
-public class PlayerController : NetworkBehaviour
+public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
 {
-    [SerializeField] private CharacterController _characterController;
-    [SerializeField] private Camera _playerCamera;
+    [Header("References")]
+    [SerializeField] private CharacterController characterController;
 
-    public float runAcceleration = 0.25f;
-    public float runSpeed = 4f;
-    public float drag = 0.1f;
-    public float lookSenseH = 0.1f;
-    public float lookSenseV = 0.1f;
-    public float lookLimitV = 89f;
+    private PlayerControls controls;
 
-    private PlayerMovement _playerMovement;
-    private Vector2 _cameraRotation = Vector2.zero;
-    private Vector2 _playerTargetRotation = Vector2.zero;
+    private Vector2 moveInput;
+    private Vector2 lookInput;
 
-    // Added: local velocity cache for smooth CharacterController movement.
-    private Vector3 _currentVelocity;
+    [Header("Movement")]
+    public float moveSpeed = 4f;
+    public float acceleration = 10f;
+    public float drag = 8f;
 
-    private void Awake()
-    {
-        _playerMovement = GetComponent<PlayerMovement>();
-    }
+    private Vector3 velocity;
 
-    // Added: OnNetworkSpawn to disable the camera for remote players.
-    // Without this every spawned player would have an active camera,
-    // causing the local view to flicker or show the wrong perspective.
+    [Header("Camera Look")]
+    public float lookSensitivity = 2f;
+    public float lookLimit = 80f;
+
+    private float yaw;
+    private float pitch;
+
+    [Header("Camera")]
+    [SerializeField] private Transform playerCamera;
+    [SerializeField] private Vector3 cameraOffset = new Vector3(0f, 6f, -4f);
+    [SerializeField] private float cameraFollowSpeed = 8f;
+
     public override void OnNetworkSpawn()
     {
-        _playerCamera.gameObject.SetActive(IsOwner);
+        // Only local player sees/controls camera logic
+        if (IsOwner)
+        {
+            controls = new PlayerControls();
+            controls.Enable();
+            controls.PlayerMovement.SetCallbacks(this);
+        }
     }
 
-    private void Update()
+    public override void OnNetworkDespawn()
     {
-        // Only the owning client controls this player.
-        // NetworkTransform automatically syncs the movement
-        // and rotation to all remote clients.
+        if (!IsOwner) return;
+
+        controls.PlayerMovement.RemoveCallbacks(this);
+        controls.Disable();
+    }
+
+    void Update()
+    {
         if (!IsOwner) return;
 
         HandleMovement();
+        HandleLook();
+        HandleCamera(); 
     }
 
-    private void HandleMovement()
+    // ---------------- INPUT CALLBACKS ----------------
+
+    public void OnMove(InputAction.CallbackContext context)
     {
-        Vector3 cameraForwardXZ = new Vector3(
-            _playerCamera.transform.forward.x,
-            0f,
-            _playerCamera.transform.forward.z
-        ).normalized;
+        moveInput = Vector2.ClampMagnitude(context.ReadValue<Vector2>(), 1f);
+    }
 
-        Vector3 cameraRightXZ = new Vector3(
-            _playerCamera.transform.right.x,
-            0f,
-            _playerCamera.transform.right.z
-        ).normalized;
+    public void OnLook(InputAction.CallbackContext context)
+    {
+        lookInput = context.ReadValue<Vector2>();
+    }
 
-        Vector3 movementDirection =
-            cameraRightXZ * _playerMovement.MovementInput.x +
-            cameraForwardXZ * _playerMovement.MovementInput.y;
+    // ---------------- MOVEMENT ----------------
 
-        Vector3 movementDelta =
-            movementDirection * runAcceleration * Time.deltaTime;
+    void HandleMovement()
+    {
+        Vector3 forward = transform.forward;
+        Vector3 right = transform.right;
 
-        // Build velocity over time
-        _currentVelocity += movementDelta;
+        forward.y = 0f;
+        right.y = 0f;
+
+        forward.Normalize();
+        right.Normalize();
+
+        Vector3 direction =
+            right * moveInput.x +
+            forward * moveInput.y;
+
+        velocity += direction * acceleration * Time.deltaTime;
 
         // Apply drag
-        Vector3 currentDrag =
-            _currentVelocity.normalized * drag * Time.deltaTime;
+        velocity = Vector3.Lerp(velocity, Vector3.zero, drag * Time.deltaTime);
 
-        _currentVelocity =
-            (_currentVelocity.magnitude > drag * Time.deltaTime)
-            ? _currentVelocity - currentDrag
-            : Vector3.zero;
+        velocity = Vector3.ClampMagnitude(velocity, moveSpeed);
 
-        // Clamp speed
-        _currentVelocity =
-            Vector3.ClampMagnitude(_currentVelocity, runSpeed);
-
-        // Move using CharacterController
-        _characterController.Move(
-            _currentVelocity * Time.deltaTime
-        );
+        characterController.Move(velocity * Time.deltaTime);
     }
 
-    private void LateUpdate()
+    // ---------------- THIRD-PERSON LOOK ----------------
+
+    void HandleLook()
     {
         if (!IsOwner) return;
 
-        _cameraRotation.x +=
-            lookSenseH * _playerMovement.LookInput.x;
+        yaw += lookInput.x * lookSensitivity;
+        pitch -= lookInput.y * lookSensitivity;
 
-        _cameraRotation.y = Mathf.Clamp(
-            _cameraRotation.y -
-            lookSenseV * _playerMovement.LookInput.y,
-            -lookLimitV,
-            lookLimitV
+        pitch = Mathf.Clamp(pitch, -lookLimit, lookLimit);
+
+        // ONLY rotate player OR rig (NOT cameraTarget)
+        transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+    }
+
+    void HandleCamera()
+    {
+        if (!IsOwner || playerCamera == null) return;
+
+        Vector3 targetPosition = transform.position + transform.rotation * cameraOffset;
+
+        playerCamera.position = Vector3.Lerp(
+            playerCamera.position,
+            targetPosition,
+            cameraFollowSpeed * Time.deltaTime
         );
 
-        _playerTargetRotation.x +=
-            lookSenseH * _playerMovement.LookInput.x;
-
-        // Rotate player body
-        transform.rotation = Quaternion.Euler(
-            0f,
-            _playerTargetRotation.x,
-            0f
-        );
-
-        // Rotate camera independently
-        _playerCamera.transform.rotation = Quaternion.Euler(
-            _cameraRotation.y,
-            _cameraRotation.x,
-            0f
-        );
+        playerCamera.LookAt(transform.position + Vector3.up * 1.5f);
     }
 }
