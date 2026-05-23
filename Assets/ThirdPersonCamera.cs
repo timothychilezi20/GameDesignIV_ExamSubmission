@@ -1,37 +1,55 @@
 using UnityEngine;
-using Unity.Netcode;
+using UnityEngine.InputSystem;
 
 public class ThirdPersonCamera : MonoBehaviour
 {
-    [Header("Target")]
     public Transform target;
 
-    [Header("Offset")]
-    public Vector3 offset = new Vector3(0f, 6f, -4f);
+    public Vector3 offset = new Vector3(0f, 3f, -6f);
+    public float followSpeed = 10f;
 
-    [Header("Follow Settings")]
-    public float followSpeed = 8f;
+    private float yaw;
+    private float pitch;
 
-    [Header("Look Settings")]
-    public float lookHeightOffset = 1.5f;
+    public float sensitivity = 0.1f;
+
+    private PlayerControls controls;
+    private Vector2 lookInput;
+
+    void OnEnable()
+    {
+        controls = new PlayerControls();
+        controls.Enable();
+
+        controls.PlayerMovement.Look.performed += ctx => lookInput = ctx.ReadValue<Vector2>();
+        controls.PlayerMovement.Look.canceled += ctx => lookInput = Vector2.zero;
+    }
+
+    void OnDisable()
+    {
+        controls.Disable();
+    }
 
     void LateUpdate()
     {
         if (target == null) return;
 
-        // Desired position above/behind player
-        Vector3 desiredPosition = target.position + offset;
+        // NEW INPUT SYSTEM CAMERA LOOK
+        yaw += lookInput.x * sensitivity;
+        pitch -= lookInput.y * sensitivity;
+        pitch = Mathf.Clamp(pitch, -30f, 60f);
 
-        // Smooth follow
+        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
+
+        Vector3 desiredPosition = target.position + rotation * offset;
+
         transform.position = Vector3.Lerp(
             transform.position,
             desiredPosition,
-            followSpeed * Time.deltaTime
+            1f - Mathf.Exp(-followSpeed * Time.deltaTime)
         );
 
-        // Always look at player (slightly above feet)
-        Vector3 lookTarget = target.position + Vector3.up * lookHeightOffset;
-        transform.LookAt(lookTarget);
+        transform.LookAt(target.position + Vector3.up * 1.5f);
     }
 
     public void SetTarget(Transform newTarget)

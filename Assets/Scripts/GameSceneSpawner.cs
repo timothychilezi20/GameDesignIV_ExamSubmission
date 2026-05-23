@@ -12,7 +12,6 @@ public class GameSceneSpawner : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        // Only server spawns players
         if (!IsServer) return;
 
         SpawnPlayers();
@@ -23,7 +22,7 @@ public class GameSceneSpawner : NetworkBehaviour
         foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
         {
             Transform spawnPoint =
-                clientId == 0
+                clientId == NetworkManager.ServerClientId
                 ? hostSpawn
                 : clientSpawn;
 
@@ -36,7 +35,9 @@ public class GameSceneSpawner : NetworkBehaviour
             player.GetComponent<NetworkObject>()
                 .SpawnAsPlayerObject(clientId, true);
 
-            Debug.Log("Spawned player for ClientId: " + clientId);
+            Debug.Log(
+                $"Spawned player for ClientId {clientId} at {spawnPoint.name}"
+            );
         }
     }
 }

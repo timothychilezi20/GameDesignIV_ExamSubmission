@@ -1,45 +1,109 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
+using System.Collections;
 
 public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
 {
     [Header("References")]
-    [SerializeField] private CharacterController characterController;
+    [SerializeField] private CharacterController controller;
 
+    private Camera mainCam;
     private PlayerControls controls;
 
+    // Input
     private Vector2 moveInput;
     private Vector2 lookInput;
 
+    // Movement
     [Header("Movement")]
-    public float moveSpeed = 4f;
-    public float acceleration = 10f;
-    public float drag = 8f;
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float gravity = -20f;
 
-    private Vector3 velocity;
+    private float verticalVelocity;
 
-    [Header("Camera Look")]
-    public float lookSensitivity = 2f;
-    public float lookLimit = 80f;
+    // Camera reference
+    private Transform camTransform;
 
-    private float yaw;
-    private float pitch;
+    [Header("Smoothing")]
+    [SerializeField] private float acceleration = 10f;
+    [SerializeField] private float deceleration = 15f;
 
-    [Header("Camera")]
-    [SerializeField] private Transform playerCamera;
-    [SerializeField] private Vector3 cameraOffset = new Vector3(0f, 6f, -4f);
-    [SerializeField] private float cameraFollowSpeed = 8f;
+    private Vector3 currentVelocity;
+    private Vector3 smoothDirection;
 
     public override void OnNetworkSpawn()
     {
-        // Only local player sees/controls camera logic
-        if (IsOwner)
+        // ---------------- SERVER SPAWN ----------------
+        if (IsServer)
         {
-            controls = new PlayerControls();
-            controls.Enable();
-            controls.PlayerMovement.SetCallbacks(this);
+            GameObject spawnPoint = null;
+
+            if (OwnerClientId == NetworkManager.ServerClientId)
+                spawnPoint = GameObject.Find("HostSpawn");
+            else
+                spawnPoint = GameObject.Find("ClientSpawn");
+
+            if (spawnPoint != null)
+            {
+                transform.position = spawnPoint.transform.position;
+                transform.rotation = spawnPoint.transform.rotation;
+            }
         }
+
+        // ---------------- NON-OWNER ----------------
+        if (!IsOwner)
+        {
+            if (controller != null)
+                controller.enabled = false;
+
+            return;
+        }
+
+        // ---------------- LOCAL PLAYER ----------------
+        if (controller != null)
+            controller.enabled = true;
+
+        controls = new PlayerControls();
+        controls.Enable();
+        controls.PlayerMovement.SetCallbacks(this);
+
+        moveInput = Vector2.zero;
+        lookInput = Vector2.zero;
+        verticalVelocity = 0f;
+
+        // IMPORTANT: delay camera assignment (FIXES YOUR ISSUE)
+        StartCoroutine(AssignCamera());
+
+        Debug.Log($"[OnNetworkSpawn] Player ready: {OwnerClientId}");
+    }
+
+    private IEnumerator AssignCamera()
+    {
+        // Wait for camera to exist in scene
+        yield return null;
+
+        mainCam = Camera.main;
+
+        if (mainCam == null)
+        {
+            Debug.LogError("Main Camera not found!");
+            yield break;
+        }
+
+        camTransform = mainCam.transform;
+
+        ThirdPersonCamera camFollow = mainCam.GetComponent<ThirdPersonCamera>();
+
+        if (camFollow == null)
+        {
+            Debug.LogError("ThirdPersonCamera missing on Main Camera!");
+            yield break;
+        }
+
+        camFollow.SetTarget(transform);
+
+        Debug.Log("Camera successfully attached to player: " + name);
     }
 
     public override void OnNetworkDespawn()
@@ -50,33 +114,35 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         controls.Disable();
     }
 
-    void Update()
+    private void Update()
     {
         if (!IsOwner) return;
 
         HandleMovement();
-        HandleLook();
-        HandleCamera(); 
     }
 
-    // ---------------- INPUT CALLBACKS ----------------
+    // ---------------- INPUT ----------------
 
     public void OnMove(InputAction.CallbackContext context)
     {
-        moveInput = Vector2.ClampMagnitude(context.ReadValue<Vector2>(), 1f);
+        if (!IsOwner) return;
+        moveInput = context.ReadValue<Vector2>();
     }
 
     public void OnLook(InputAction.CallbackContext context)
     {
+        if (!IsOwner) return;
         lookInput = context.ReadValue<Vector2>();
     }
 
-    // ---------------- MOVEMENT ----------------
+    // ---------------- MOVEMENT (OPTION A - CORRECT) ----------------
 
-    void HandleMovement()
+    private void HandleMovement()
     {
-        Vector3 forward = transform.forward;
-        Vector3 right = transform.right;
+        if (camTransform == null) return;
+
+        Vector3 forward = camTransform.forward;
+        Vector3 right = camTransform.right;
 
         forward.y = 0f;
         right.y = 0f;
@@ -84,47 +150,48 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         forward.Normalize();
         right.Normalize();
 
-        Vector3 direction =
-            right * moveInput.x +
-            forward * moveInput.y;
+        // RAW input direction (DO NOT SMOOTH THIS)
+        Vector3 inputDirection =
+            forward * moveInput.y +
+            right * moveInput.x;
 
-        velocity += direction * acceleration * Time.deltaTime;
+        if (inputDirection.magnitude > 1f)
+            inputDirection.Normalize();
 
-        // Apply drag
-        velocity = Vector3.Lerp(velocity, Vector3.zero, drag * Time.deltaTime);
+        // ---------------- ROTATION (smooth only) ----------------
+        if (inputDirection.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(inputDirection);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                12f * Time.deltaTime
+            );
+        }
 
-        velocity = Vector3.ClampMagnitude(velocity, moveSpeed);
+        // ---------------- GRAVITY ----------------
+        if (controller.isGrounded && verticalVelocity < 0f)
+            verticalVelocity = -2f;
 
-        characterController.Move(velocity * Time.deltaTime);
-    }
+        verticalVelocity += gravity * Time.deltaTime;
 
-    // ---------------- THIRD-PERSON LOOK ----------------
+        // ---------------- SMOOTH ACCELERATION (velocity ONLY) ----------------
+        Vector3 targetVelocity = inputDirection * moveSpeed;
 
-    void HandleLook()
-    {
-        if (!IsOwner) return;
+        Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
 
-        yaw += lookInput.x * lookSensitivity;
-        pitch -= lookInput.y * lookSensitivity;
-
-        pitch = Mathf.Clamp(pitch, -lookLimit, lookLimit);
-
-        // ONLY rotate player OR rig (NOT cameraTarget)
-        transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-    }
-
-    void HandleCamera()
-    {
-        if (!IsOwner || playerCamera == null) return;
-
-        Vector3 targetPosition = transform.position + transform.rotation * cameraOffset;
-
-        playerCamera.position = Vector3.Lerp(
-            playerCamera.position,
-            targetPosition,
-            cameraFollowSpeed * Time.deltaTime
+        currentHorizontalVelocity = Vector3.Lerp(
+            currentHorizontalVelocity,
+            targetVelocity,
+            10f * Time.deltaTime
         );
 
-        playerCamera.LookAt(transform.position + Vector3.up * 1.5f);
+        currentVelocity = new Vector3(
+            currentHorizontalVelocity.x,
+            verticalVelocity,
+            currentHorizontalVelocity.z
+        );
+
+        controller.Move(currentVelocity * Time.deltaTime);
     }
 }
