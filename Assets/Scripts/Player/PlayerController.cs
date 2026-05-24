@@ -1,116 +1,197 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Unity.Netcode;
+using UnityEngine.InputSystem;
+using System.Collections;
 
-public class PlayerController : NetworkBehaviour
+public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
 {
-    [SerializeField] private CharacterController _characterController;
-    [SerializeField] private Camera _playerCamera;
+    [Header("References")]
+    [SerializeField] private CharacterController controller;
 
-    public float runAcceleration = 0.25f;
-    public float runSpeed = 4f;
-    public float drag = 0.1f;
-    public float lookSenseH = 0.1f;
-    public float lookSenseV = 0.1f;
-    public float lookLimitV = 89f;
+    private Camera mainCam;
+    private PlayerControls controls;
 
-    private PlayerMovement _playerMovement;
-    private Vector2 _cameraRotation = Vector2.zero;
-    private Vector2 _playerTargetRotation = Vector2.zero;
+    // Input
+    private Vector2 moveInput;
+    private Vector2 lookInput;
 
-    // Added: NetworkVariable to sync position to all clients.
-    // ServerWrite means only the server can change it;
-    // all clients can read it to render the remote player correctly.
-    private NetworkVariable<Vector3> _networkPosition = new NetworkVariable<Vector3>(
-        Vector3.zero,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    // Movement
+    [Header("Movement")]
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float gravity = -20f;
 
-    // Added: NetworkVariable to sync rotation.
-    // Remote clients read this to rotate the non-owned player object.
-    private NetworkVariable<Quaternion> _networkRotation = new NetworkVariable<Quaternion>(
-        Quaternion.identity,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    private float verticalVelocity;
 
-    private void Awake()
-    {
-        _playerMovement = GetComponent<PlayerMovement>();
-    }
+    // Camera reference
+    private Transform camTransform;
 
-    // Added: OnNetworkSpawn to disable the camera for remote players.
-    // Without this every spawned player would have an active camera,
-    // causing the local view to flicker or show the wrong perspective.
+    [Header("Smoothing")]
+    [SerializeField] private float acceleration = 10f;
+    [SerializeField] private float deceleration = 15f;
+
+    private Vector3 currentVelocity;
+    private Vector3 smoothDirection;
+
     public override void OnNetworkSpawn()
     {
-        _playerCamera.gameObject.SetActive(IsOwner);
+        // ---------------- SERVER SPAWN ----------------
+        if (IsServer)
+        {
+            GameObject spawnPoint = null;
+
+            if (OwnerClientId == NetworkManager.ServerClientId)
+                spawnPoint = GameObject.Find("HostSpawn");
+            else
+                spawnPoint = GameObject.Find("ClientSpawn");
+
+            if (spawnPoint != null)
+            {
+                transform.position = spawnPoint.transform.position;
+                transform.rotation = spawnPoint.transform.rotation;
+            }
+        }
+
+        // ---------------- NON-OWNER ----------------
+        if (!IsOwner)
+        {
+            if (controller != null)
+                controller.enabled = false;
+
+            return;
+        }
+
+        // ---------------- LOCAL PLAYER ----------------
+        if (controller != null)
+            controller.enabled = true;
+
+        controls = new PlayerControls();
+        controls.Enable();
+        controls.PlayerMovement.SetCallbacks(this);
+
+        moveInput = Vector2.zero;
+        lookInput = Vector2.zero;
+        verticalVelocity = 0f;
+
+        // IMPORTANT: delay camera assignment (FIXES YOUR ISSUE)
+        StartCoroutine(AssignCamera());
+
+        Debug.Log($"[OnNetworkSpawn] Player ready: {OwnerClientId}");
+    }
+
+    private IEnumerator AssignCamera()
+    {
+        // Wait for camera to exist in scene
+        yield return null;
+
+        mainCam = Camera.main;
+
+        if (mainCam == null)
+        {
+            Debug.LogError("Main Camera not found!");
+            yield break;
+        }
+
+        camTransform = mainCam.transform;
+
+        ThirdPersonCamera camFollow = mainCam.GetComponent<ThirdPersonCamera>();
+
+        if (camFollow == null)
+        {
+            Debug.LogError("ThirdPersonCamera missing on Main Camera!");
+            yield break;
+        }
+
+        camFollow.SetTarget(transform);
+
+        Debug.Log("Camera successfully attached to player: " + name);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (!IsOwner) return;
+
+        controls.PlayerMovement.RemoveCallbacks(this);
+        controls.Disable();
     }
 
     private void Update()
     {
-        if (IsOwner)
-        {
-            HandleMovement();
-        }
-        else
-        {
-            // Remote players: smoothly interpolate to their
-            // server-synced position and rotation instead of
-            // snapping, which would look jittery.
-            transform.position = Vector3.Lerp(
-                transform.position,
-                _networkPosition.Value,
-                Time.deltaTime * 15f
-            );
-            transform.rotation = Quaternion.Lerp(
-                transform.rotation,
-                _networkRotation.Value,
-                Time.deltaTime * 15f
-            );
-        }
+        if (!IsOwner) return;
+
+        HandleMovement();
     }
+
+    // ---------------- INPUT ----------------
+
+    public void OnMove(InputAction.CallbackContext context)
+    {
+        if (!IsOwner) return;
+        moveInput = context.ReadValue<Vector2>();
+    }
+
+    public void OnLook(InputAction.CallbackContext context)
+    {
+        if (!IsOwner) return;
+        lookInput = context.ReadValue<Vector2>();
+    }
+
+    // ---------------- MOVEMENT (OPTION A - CORRECT) ----------------
 
     private void HandleMovement()
     {
-        Vector3 cameraForwardXZ = new Vector3(_playerCamera.transform.forward.x, 0f, _playerCamera.transform.forward.z).normalized;
-        Vector3 cameraRightXZ = new Vector3(_playerCamera.transform.right.x, 0f, _playerCamera.transform.right.z).normalized;
-        Vector3 movementDirection = cameraRightXZ * _playerMovement.MovementInput.x + cameraForwardXZ * _playerMovement.MovementInput.y;
+        if (camTransform == null) return;
 
-        Vector3 movementDelta = movementDirection * runAcceleration * Time.deltaTime;
-        Vector3 newVelocity = _characterController.velocity + movementDelta;
+        Vector3 forward = camTransform.forward;
+        Vector3 right = camTransform.right;
 
-        Vector3 currentDrag = newVelocity.normalized * drag * Time.deltaTime;
-        newVelocity = (newVelocity.magnitude > drag * Time.deltaTime) ? newVelocity - currentDrag : Vector3.zero;
-        newVelocity = Vector3.ClampMagnitude(newVelocity, runSpeed);
+        forward.y = 0f;
+        right.y = 0f;
 
-        _characterController.Move(newVelocity * Time.deltaTime);
+        forward.Normalize();
+        right.Normalize();
 
-        // Added: after moving locally, tell the server our new
-        // position and rotation so it can broadcast to other clients.
-        UpdatePositionServerRpc(transform.position, transform.rotation);
-    }
+        // RAW input direction (DO NOT SMOOTH THIS)
+        Vector3 inputDirection =
+            forward * moveInput.y +
+            right * moveInput.x;
 
-    private void LateUpdate()
-    {
-        if (!IsOwner) return;
+        if (inputDirection.magnitude > 1f)
+            inputDirection.Normalize();
 
-        _cameraRotation.x += lookSenseH * _playerMovement.LookInput.x;
-        _cameraRotation.y = Mathf.Clamp(_cameraRotation.y - lookSenseV * _playerMovement.LookInput.y, -lookLimitV, lookLimitV);
-        _playerTargetRotation.x += lookSenseH * _playerMovement.LookInput.x;
+        // ---------------- ROTATION (smooth only) ----------------
+        if (inputDirection.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(inputDirection);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                12f * Time.deltaTime
+            );
+        }
 
-        transform.rotation = Quaternion.Euler(0f, _playerTargetRotation.x, 0f);
-        _playerCamera.transform.rotation = Quaternion.Euler(_cameraRotation.y, _cameraRotation.x, 0f);
-    }
+        // ---------------- GRAVITY ----------------
+        if (controller.isGrounded && verticalVelocity < 0f)
+            verticalVelocity = -2f;
 
-    // Added: ServerRpc — this method is called on the client (owner)
-    // but RUNS on the server. The server then updates the NetworkVariables
-    // which automatically replicate to all other connected clients.
-    // RequireOwnership = true means only the owning client can call this.
-    [ServerRpc]
-    private void UpdatePositionServerRpc(Vector3 position, Quaternion rotation)
-    {
-        _networkPosition.Value = position;
-        _networkRotation.Value = rotation;
+        verticalVelocity += gravity * Time.deltaTime;
+
+        // ---------------- SMOOTH ACCELERATION (velocity ONLY) ----------------
+        Vector3 targetVelocity = inputDirection * moveSpeed;
+
+        Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
+
+        currentHorizontalVelocity = Vector3.Lerp(
+            currentHorizontalVelocity,
+            targetVelocity,
+            10f * Time.deltaTime
+        );
+
+        currentVelocity = new Vector3(
+            currentHorizontalVelocity.x,
+            verticalVelocity,
+            currentHorizontalVelocity.z
+        );
+
+        controller.Move(currentVelocity * Time.deltaTime);
     }
 }
