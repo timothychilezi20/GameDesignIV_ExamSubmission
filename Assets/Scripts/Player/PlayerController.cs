@@ -38,6 +38,9 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
+
+    // ─── Flag to prevent lerping before first valid position arrives ───
+    private bool _hasReceivedFirstPosition = false;
     // ─────────────────────────────────────────────────────────────
 
     // ─── Area Tracking ────────────────────────────────────────────
@@ -52,6 +55,8 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         {
             if (controller != null)
                 controller.enabled = false;
+
+            _networkPosition.OnValueChanged += OnNetworkPositionFirstReceived;
             return;
         }
 
@@ -65,6 +70,17 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         verticalVelocity = 0f;
 
         StartCoroutine(AssignCamera());
+    }
+
+    private void OnNetworkPositionFirstReceived(Vector3 previous, Vector3 current)
+    {
+       if (_hasReceivedFirstPosition) return;
+
+        //Snap directly to spawn position, don't lerp from Vector3.zero
+        transform.position = current;
+        _hasReceivedFirstPosition = true;
+
+        _networkPosition.OnValueChanged -= OnNetworkPositionFirstReceived;
     }
 
     private IEnumerator AssignCamera()
@@ -115,6 +131,9 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
             // the owner's ServerRpc and smoothly lerp toward them.
             // Without this remote players snap to new positions
             // every network tick instead of moving fluidly.
+
+            if (!_hasReceivedFirstPosition) return; 
+
             transform.position = Vector3.Lerp(
                 transform.position,
                 _networkPosition.Value,

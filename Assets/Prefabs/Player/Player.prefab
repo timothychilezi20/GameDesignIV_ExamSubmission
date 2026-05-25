@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 578388571
+  GlobalObjectIdHash: 733549471
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -185,10 +185,7 @@ MonoBehaviour:
   controller: {fileID: 3244686801815822521}
   moveSpeed: 4
   gravity: -20
-  rotationSpeed: 2
-  cameraOffset: {x: 0, y: 6, z: -4}
-  cameraSmoothSpeed: 10
-  cameraLookHeight: 1.5
+  acceleration: 10
 --- !u!114 &8254874618461181036
 MonoBehaviour:
   m_ObjectHideFlags: 0
