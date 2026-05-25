@@ -27,28 +27,41 @@ public class MainMenuUI : MonoBehaviour
         ShowTitleScreen();
     }
 
+    private void ResetUI()
+    {
+        // Disable all panels
+        titleScreenPanel.SetActive(false);
+        controlsPanel.SetActive(false);
+        lobbyPanel.SetActive(false);
+        hostPanel.SetActive(false);
+        clientPanel.SetActive(false);
+
+        // Clear text
+        statusText.text = string.Empty;
+        joinCodeText.text = string.Empty;
+        joinCodeInput.text = string.Empty;
+
+        // Hide status text
+        statusText.gameObject.SetActive(false);
+
+        // Reset buttons
+        startGameButton.SetActive(false);
+    }
+
     // =====================================================
     // TITLE SCREEN
     // =====================================================
 
     public void OpenLobby()
     {
-        titleScreenPanel.SetActive(false);
-
-        controlsPanel.SetActive(false);
-        hostPanel.SetActive(false);
-        clientPanel.SetActive(false);
+        ResetUI();
 
         lobbyPanel.SetActive(true);
     }
 
     public void OpenControls()
     {
-        titleScreenPanel.SetActive(false);
-
-        lobbyPanel.SetActive(false);
-        hostPanel.SetActive(false);
-        clientPanel.SetActive(false);
+        ResetUI();
 
         controlsPanel.SetActive(true);
     }
@@ -59,19 +72,18 @@ public class MainMenuUI : MonoBehaviour
 
     public async void OnHostPressed()
     {
-        lobbyPanel.SetActive(false);
+        ResetUI();
+
         hostPanel.SetActive(true);
 
         string code =
             await RelayLobbyManager.Instance.CreateRelay();
 
-        joinCodeText.text =
-            "" + code;
+        joinCodeText.text = code;
 
-        startGameButton.SetActive(true);
+        statusText.text = "Waiting for player...";
 
-        statusText.text =
-            "Waiting for player...";
+        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
     }
 
     // =====================================================
@@ -80,13 +92,14 @@ public class MainMenuUI : MonoBehaviour
 
     public void OnJoinPressed()
     {
-        lobbyPanel.SetActive(false);
+        ResetUI();
+
         clientPanel.SetActive(true);
     }
 
     public async void OnConnectPressed()
     {
-        string code = joinCodeInput.text;
+        string code = joinCodeInput.text.ToUpper();
 
         if (string.IsNullOrEmpty(code))
         {
@@ -98,6 +111,17 @@ public class MainMenuUI : MonoBehaviour
 
         statusText.text =
             "Connected!";
+    }
+
+    private void OnClientConnected(ulong clientId)
+    {
+        // Ignore host connecting to itself
+        if (clientId == NetworkManager.Singleton.LocalClientId)
+            return;
+
+        statusText.text = "Player connected! Ready to start.";
+
+        startGameButton.SetActive(true);
     }
 
     // =====================================================
@@ -128,12 +152,16 @@ public class MainMenuUI : MonoBehaviour
 
     public void BackToTitle()
     {
-        // If currently connected, disconnect safely
         if (NetworkManager.Singleton != null &&
             (NetworkManager.Singleton.IsHost ||
              NetworkManager.Singleton.IsClient))
         {
             NetworkManager.Singleton.Shutdown();
+        }
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
         }
 
         ShowTitleScreen();
@@ -145,16 +173,8 @@ public class MainMenuUI : MonoBehaviour
 
     private void ShowTitleScreen()
     {
+        ResetUI();
+
         titleScreenPanel.SetActive(true);
-
-        controlsPanel.SetActive(false);
-        lobbyPanel.SetActive(false);
-        hostPanel.SetActive(false);
-        clientPanel.SetActive(false);
-
-        joinCodeInput.text = "";
-        joinCodeText.text = "";
-
-        statusText.text = "";
     }
 }

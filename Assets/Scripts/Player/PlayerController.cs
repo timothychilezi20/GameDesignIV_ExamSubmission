@@ -3,46 +3,37 @@ using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
 
-public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
+public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActions
 {
     [Header("References")]
     [SerializeField] private CharacterController controller;
 
     private Camera mainCam;
-    private PlayerControls controls;
+    private GameInput controls;
 
-    // Input
     private Vector2 moveInput;
-    private Vector2 lookInput;
 
-    // Movement
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float gravity = -20f;
 
-    private float verticalVelocity;
-
-    // Camera reference
-    private Transform camTransform;
-
     [Header("Smoothing")]
     [SerializeField] private float acceleration = 10f;
-    [SerializeField] private float deceleration = 15f;
 
+    private float verticalVelocity;
     private Vector3 currentVelocity;
-    private Vector3 smoothDirection;
+
+    private Transform camTransform;
+
+    // ---------------- NETWORK SPAWN ----------------
 
     public override void OnNetworkSpawn()
     {
-        // ---------------- SERVER SPAWN ----------------
         if (IsServer)
         {
-            GameObject spawnPoint = null;
-
-            if (OwnerClientId == NetworkManager.ServerClientId)
-                spawnPoint = GameObject.Find("HostSpawn");
-            else
-                spawnPoint = GameObject.Find("ClientSpawn");
+            GameObject spawnPoint = OwnerClientId == NetworkManager.ServerClientId
+                ? GameObject.Find("HostSpawn")
+                : GameObject.Find("ClientSpawn");
 
             if (spawnPoint != null)
             {
@@ -51,7 +42,6 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
             }
         }
 
-        // ---------------- NON-OWNER ----------------
         if (!IsOwner)
         {
             if (controller != null)
@@ -60,50 +50,34 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
             return;
         }
 
-        // ---------------- LOCAL PLAYER ----------------
-        if (controller != null)
-            controller.enabled = true;
+        controller.enabled = true;
 
-        controls = new PlayerControls();
+        controls = new GameInput();
         controls.Enable();
         controls.PlayerMovement.SetCallbacks(this);
 
         moveInput = Vector2.zero;
-        lookInput = Vector2.zero;
         verticalVelocity = 0f;
 
-        // IMPORTANT: delay camera assignment (FIXES YOUR ISSUE)
         StartCoroutine(AssignCamera());
-
-        Debug.Log($"[OnNetworkSpawn] Player ready: {OwnerClientId}");
     }
 
     private IEnumerator AssignCamera()
     {
-        // Wait for camera to exist in scene
         yield return null;
 
         mainCam = Camera.main;
 
-        if (mainCam == null)
-        {
-            Debug.LogError("Main Camera not found!");
-            yield break;
-        }
+        if (mainCam == null) yield break;
 
         camTransform = mainCam.transform;
 
         ThirdPersonCamera camFollow = mainCam.GetComponent<ThirdPersonCamera>();
 
-        if (camFollow == null)
+        if (camFollow != null)
         {
-            Debug.LogError("ThirdPersonCamera missing on Main Camera!");
-            yield break;
+            camFollow.SetTarget(transform);
         }
-
-        camFollow.SetTarget(transform);
-
-        Debug.Log("Camera successfully attached to player: " + name);
     }
 
     public override void OnNetworkDespawn()
@@ -114,13 +88,6 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         controls.Disable();
     }
 
-    private void Update()
-    {
-        if (!IsOwner) return;
-
-        HandleMovement();
-    }
-
     // ---------------- INPUT ----------------
 
     public void OnMove(InputAction.CallbackContext context)
@@ -129,13 +96,19 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         moveInput = context.ReadValue<Vector2>();
     }
 
-    public void OnLook(InputAction.CallbackContext context)
+    public void OnLook(InputAction.CallbackContext context) { }
+    public void OnPause(InputAction.CallbackContext context) { }
+
+    // ---------------- UPDATE ----------------
+
+    private void Update()
     {
         if (!IsOwner) return;
-        lookInput = context.ReadValue<Vector2>();
+
+        HandleMovement();
     }
 
-    // ---------------- MOVEMENT (OPTION A - CORRECT) ----------------
+    // ---------------- MOVEMENT ----------------
 
     private void HandleMovement()
     {
@@ -150,7 +123,6 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         forward.Normalize();
         right.Normalize();
 
-        // RAW input direction (DO NOT SMOOTH THIS)
         Vector3 inputDirection =
             forward * moveInput.y +
             right * moveInput.x;
@@ -158,10 +130,12 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         if (inputDirection.magnitude > 1f)
             inputDirection.Normalize();
 
-        // ---------------- ROTATION (smooth only) ----------------
+        // Rotate toward movement
         if (inputDirection.sqrMagnitude > 0.01f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(inputDirection);
+            Quaternion targetRotation =
+                Quaternion.LookRotation(inputDirection);
+
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
                 targetRotation,
@@ -169,27 +143,27 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
             );
         }
 
-        // ---------------- GRAVITY ----------------
+        // Gravity
         if (controller.isGrounded && verticalVelocity < 0f)
             verticalVelocity = -2f;
 
         verticalVelocity += gravity * Time.deltaTime;
 
-        // ---------------- SMOOTH ACCELERATION (velocity ONLY) ----------------
+        // Smooth movement
         Vector3 targetVelocity = inputDirection * moveSpeed;
 
-        Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
+        Vector3 horizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
-        currentHorizontalVelocity = Vector3.Lerp(
-            currentHorizontalVelocity,
+        horizontal = Vector3.Lerp(
+            horizontal,
             targetVelocity,
-            10f * Time.deltaTime
+            acceleration * Time.deltaTime
         );
 
         currentVelocity = new Vector3(
-            currentHorizontalVelocity.x,
+            horizontal.x,
             verticalVelocity,
-            currentHorizontalVelocity.z
+            horizontal.z
         );
 
         controller.Move(currentVelocity * Time.deltaTime);

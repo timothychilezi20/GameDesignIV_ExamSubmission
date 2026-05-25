@@ -18,5 +18,5 @@ EditorBuildSettings:
     path: Assets/Scenes/Apayin.unity
     guid: b0ab5af43edcf5d48b6a8a740782d9b6
   m_configObjects:
-    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 4142118d8a59814479777e58097e50ad, type: 3}
   m_UseUCBPForAssetBundles: 0

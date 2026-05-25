@@ -13,19 +13,22 @@ public class ThirdPersonCamera : MonoBehaviour
 
     public float sensitivity = 0.1f;
 
-    private PlayerControls controls;
+    private GameInput controls;
     private Vector2 lookInput;
 
-    void OnEnable()
+    private void OnEnable()
     {
-        controls = new PlayerControls();
+        controls = new GameInput();
         controls.Enable();
 
-        controls.PlayerMovement.Look.performed += ctx => lookInput = ctx.ReadValue<Vector2>();
-        controls.PlayerMovement.Look.canceled += ctx => lookInput = Vector2.zero;
+        controls.PlayerMovement.Look.performed += ctx =>
+            lookInput = ctx.ReadValue<Vector2>();
+
+        controls.PlayerMovement.Look.canceled += ctx =>
+            lookInput = Vector2.zero;
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
         controls.Disable();
     }
@@ -34,7 +37,6 @@ public class ThirdPersonCamera : MonoBehaviour
     {
         if (target == null) return;
 
-        // NEW INPUT SYSTEM CAMERA LOOK
         yaw += lookInput.x * sensitivity;
         pitch -= lookInput.y * sensitivity;
         pitch = Mathf.Clamp(pitch, -30f, 60f);
