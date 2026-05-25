@@ -29,22 +29,16 @@ public class MainMenuUI : MonoBehaviour
 
     private void ResetUI()
     {
-        // Disable all panels
         titleScreenPanel.SetActive(false);
         controlsPanel.SetActive(false);
         lobbyPanel.SetActive(false);
         hostPanel.SetActive(false);
         clientPanel.SetActive(false);
 
-        // Clear text
         statusText.text = string.Empty;
         joinCodeText.text = string.Empty;
         joinCodeInput.text = string.Empty;
 
-        // Hide status text
-        statusText.gameObject.SetActive(false);
-
-        // Reset buttons
         startGameButton.SetActive(false);
     }
 
@@ -55,14 +49,12 @@ public class MainMenuUI : MonoBehaviour
     public void OpenLobby()
     {
         ResetUI();
-
         lobbyPanel.SetActive(true);
     }
 
     public void OpenControls()
     {
         ResetUI();
-
         controlsPanel.SetActive(true);
     }
 
@@ -73,14 +65,13 @@ public class MainMenuUI : MonoBehaviour
     public async void OnHostPressed()
     {
         ResetUI();
-
         hostPanel.SetActive(true);
 
-        string code =
-            await RelayLobbyManager.Instance.CreateRelay();
+        string code = await RelayLobbyManager.Instance.CreateRelay();
 
         joinCodeText.text = code;
 
+        statusText.gameObject.SetActive(true);
         statusText.text = "Waiting for player...";
 
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
@@ -93,7 +84,6 @@ public class MainMenuUI : MonoBehaviour
     public void OnJoinPressed()
     {
         ResetUI();
-
         clientPanel.SetActive(true);
     }
 
@@ -103,24 +93,24 @@ public class MainMenuUI : MonoBehaviour
 
         if (string.IsNullOrEmpty(code))
         {
+            statusText.gameObject.SetActive(true);
             statusText.text = "Enter a code!";
             return;
         }
 
         await RelayLobbyManager.Instance.JoinRelay(code);
 
-        statusText.text =
-            "Connected!";
+        statusText.gameObject.SetActive(true);
+        statusText.text = "Connected!";
     }
 
     private void OnClientConnected(ulong clientId)
     {
-        // Ignore host connecting to itself
         if (clientId == NetworkManager.Singleton.LocalClientId)
             return;
 
+        statusText.gameObject.SetActive(true);
         statusText.text = "Player connected! Ready to start.";
-
         startGameButton.SetActive(true);
     }
 
@@ -135,13 +125,13 @@ public class MainMenuUI : MonoBehaviour
 
         if (NetworkManager.Singleton.ConnectedClientsList.Count < 2)
         {
-            statusText.text =
-                "Waiting for second player...";
+            statusText.gameObject.SetActive(true);
+            statusText.text = "Waiting for second player...";
             return;
         }
 
         NetworkManager.Singleton.SceneManager.LoadScene(
-            "Apayin",
+            "BackUpScene",
             LoadSceneMode.Single
         );
     }
@@ -174,7 +164,6 @@ public class MainMenuUI : MonoBehaviour
     private void ShowTitleScreen()
     {
         ResetUI();
-
         titleScreenPanel.SetActive(true);
     }
 }
