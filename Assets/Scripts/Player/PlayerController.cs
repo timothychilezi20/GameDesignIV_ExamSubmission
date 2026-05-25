@@ -3,14 +3,13 @@ using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
 
-public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActions
+public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
 {
     [Header("References")]
     [SerializeField] private CharacterController controller;
 
     private Camera mainCam;
-    private GameInput controls;
-
+    private PlayerControls controls;
     private Vector2 moveInput;
 
     [Header("Movement")]
@@ -22,37 +21,43 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
 
     private float verticalVelocity;
     private Vector3 currentVelocity;
-
     private Transform camTransform;
 
-    // ---------------- NETWORK SPAWN ----------------
+    // ─── Added: NetworkVariables for remote player interpolation ──
+    // The owner updates these every frame via ServerRpc.
+    // Remote clients read them in Update to smoothly interpolate
+    // the non-owned player object instead of snapping/teleporting.
+    private NetworkVariable<Vector3> _networkPosition = new NetworkVariable<Vector3>(
+        Vector3.zero,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<Quaternion> _networkRotation = new NetworkVariable<Quaternion>(
+        Quaternion.identity,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+    // ─────────────────────────────────────────────────────────────
+
+    // ─── Area Tracking ────────────────────────────────────────────
+    public string CurrentAreaName { get; private set; } = "Unknown Area";
+    public SchoolArea.AreaType CurrentAreaType { get; private set; }
+    public bool IsInArea { get; private set; } = false;
+    // ─────────────────────────────────────────────────────────────
 
     public override void OnNetworkSpawn()
     {
-        if (IsServer)
-        {
-            GameObject spawnPoint = OwnerClientId == NetworkManager.ServerClientId
-                ? GameObject.Find("HostSpawn")
-                : GameObject.Find("ClientSpawn");
-
-            if (spawnPoint != null)
-            {
-                transform.position = spawnPoint.transform.position;
-                transform.rotation = spawnPoint.transform.rotation;
-            }
-        }
-
         if (!IsOwner)
         {
             if (controller != null)
                 controller.enabled = false;
-
             return;
         }
 
         controller.enabled = true;
 
-        controls = new GameInput();
+        controls = new PlayerControls();
         controls.Enable();
         controls.PlayerMovement.SetCallbacks(this);
 
@@ -67,17 +72,13 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
         yield return null;
 
         mainCam = Camera.main;
-
         if (mainCam == null) yield break;
 
         camTransform = mainCam.transform;
 
         ThirdPersonCamera camFollow = mainCam.GetComponent<ThirdPersonCamera>();
-
         if (camFollow != null)
-        {
             camFollow.SetTarget(transform);
-        }
     }
 
     public override void OnNetworkDespawn()
@@ -103,9 +104,29 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
 
     private void Update()
     {
-        if (!IsOwner) return;
-
-        HandleMovement();
+        if (IsOwner)
+        {
+            HandleMovement();
+        }
+        else
+        {
+            // ─── Added: Remote player interpolation ───────────────
+            // Non-owned players read the NetworkVariables written by
+            // the owner's ServerRpc and smoothly lerp toward them.
+            // Without this remote players snap to new positions
+            // every network tick instead of moving fluidly.
+            transform.position = Vector3.Lerp(
+                transform.position,
+                _networkPosition.Value,
+                Time.deltaTime * 15f
+            );
+            transform.rotation = Quaternion.Lerp(
+                transform.rotation,
+                _networkRotation.Value,
+                Time.deltaTime * 15f
+            );
+            // ─────────────────────────────────────────────────────
+        }
     }
 
     // ---------------- MOVEMENT ----------------
@@ -130,12 +151,9 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
         if (inputDirection.magnitude > 1f)
             inputDirection.Normalize();
 
-        // Rotate toward movement
         if (inputDirection.sqrMagnitude > 0.01f)
         {
-            Quaternion targetRotation =
-                Quaternion.LookRotation(inputDirection);
-
+            Quaternion targetRotation = Quaternion.LookRotation(inputDirection);
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
                 targetRotation,
@@ -143,15 +161,12 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
             );
         }
 
-        // Gravity
         if (controller.isGrounded && verticalVelocity < 0f)
             verticalVelocity = -2f;
 
         verticalVelocity += gravity * Time.deltaTime;
 
-        // Smooth movement
         Vector3 targetVelocity = inputDirection * moveSpeed;
-
         Vector3 horizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
         horizontal = Vector3.Lerp(
@@ -167,5 +182,45 @@ public class PlayerController : NetworkBehaviour, GameInput.IPlayerMovementActio
         );
 
         controller.Move(currentVelocity * Time.deltaTime);
+
+        // ─── Added: Send position and rotation to server ──────────
+        // After moving locally, the owner tells the server its new
+        // transform so the server can update the NetworkVariables
+        // which replicate out to all other connected clients.
+        UpdateTransformServerRpc(transform.position, transform.rotation);
+        // ─────────────────────────────────────────────────────────
     }
+
+    // ─── Added: ServerRpc ─────────────────────────────────────────
+    // Runs on the server when called by the owning client.
+    // Updates NetworkVariables which automatically broadcast
+    // to all other clients on the next network tick.
+    [ServerRpc]
+    private void UpdateTransformServerRpc(Vector3 position, Quaternion rotation)
+    {
+        _networkPosition.Value = position;
+        _networkRotation.Value = rotation;
+    }
+    // ─────────────────────────────────────────────────────────────
+
+    // ─── Area Tracking Triggers ───────────────────────────────────
+    private void OnTriggerEnter(Collider other)
+    {
+        SchoolArea area = other.GetComponent<SchoolArea>();
+        if (area == null) return;
+
+        CurrentAreaName = area.areaName;
+        CurrentAreaType = area.areaType;
+        IsInArea = true;
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        SchoolArea area = other.GetComponent<SchoolArea>();
+        if (area == null) return;
+
+        IsInArea = false;
+        CurrentAreaName = "Unknown Area";
+    }
+    // ─────────────────────────────────────────────────────────────
 }

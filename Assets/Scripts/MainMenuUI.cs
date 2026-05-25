@@ -141,7 +141,7 @@ public class MainMenuUI : MonoBehaviour
         }
 
         NetworkManager.Singleton.SceneManager.LoadScene(
-            "TimothyScene",
+            "Apayin",
             LoadSceneMode.Single
         );
     }
