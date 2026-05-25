@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 
 public class PlayerController : NetworkBehaviour
@@ -33,6 +33,16 @@ public class PlayerController : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
+
+
+    // ─── Area Tracking ────────────────────────────────────────────
+    // Added: These three properties are read by the Gossipier's
+    // LogPlayerSpotted method when the FOV detects this player.
+    // Stored directly on the player so any gossipier can query it
+    // without needing to know which area they're patrolling.
+    public string CurrentAreaName { get; private set; } = "Unknown Area";
+    public SchoolArea.AreaType CurrentAreaType { get; private set; }
+    public bool IsInArea { get; private set; } = false;
 
     private void Awake()
     {
@@ -103,7 +113,7 @@ public class PlayerController : NetworkBehaviour
         _playerCamera.transform.rotation = Quaternion.Euler(_cameraRotation.y, _cameraRotation.x, 0f);
     }
 
-    // Added: ServerRpc � this method is called on the client (owner)
+    // Added: ServerRpc — this method is called on the client (owner)
     // but RUNS on the server. The server then updates the NetworkVariables
     // which automatically replicate to all other connected clients.
     // RequireOwnership = true means only the owning client can call this.
@@ -113,4 +123,30 @@ public class PlayerController : NetworkBehaviour
         _networkPosition.Value = position;
         _networkRotation.Value = rotation;
     }
+
+    // ─── Area Tracking Triggers ───────────────────────────────────
+    // Added: SchoolArea trigger volumes on your 6 areas write directly
+    // into these properties when the player walks in or out.
+    // The Gossipier reads CurrentAreaName and CurrentAreaType via
+    // GetComponent<PlayerController>() when its FOV spots this player.
+    // No separate PlayerAreaTracker component needed.
+    private void OnTriggerEnter(Collider other)
+    {
+        SchoolArea area = other.GetComponent<SchoolArea>();
+        if (area == null) return;
+
+        CurrentAreaName = area.areaName;
+        CurrentAreaType = area.areaType;
+        IsInArea = true;
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        SchoolArea area = other.GetComponent<SchoolArea>();
+        if (area == null) return;
+
+        IsInArea = false;
+        CurrentAreaName = "Unknown Area";
+    }
+    // ─────────────────────────────────────────────────────────────
 }

@@ -77,12 +77,17 @@ public class FieldOfView : MonoBehaviour
     }
 
     // Changed: XY plane → XZ plane
-    // Your FOV cone sits flat on the ground in a 3D game.
+    // FOV cone sits flat on the ground
     // XY was correct for 2D but in 3D the horizontal plane is XZ.
     // Y is now 0 (flat) and Z replaces what Y was doing.
     public static Vector3 GetVectorFromAngle(float angle)
     {
         float angleRad = angle * (Mathf.PI / 180f);
-        return new Vector3(Mathf.Cos(angleRad), 0f, Mathf.Sin(angleRad));
+
+        // Changed: Cos and Sin swapped.
+        // Sin(0) = 0 on X and Cos(0) = 1 on Z, meaning angle 0
+        // now points straight forward along the Z axis — matching
+        // Unity's world forward and the gossipier's transform.forward.
+        return new Vector3(Mathf.Sin(angleRad), 0f, Mathf.Cos(angleRad));
     }
 }

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5790754100345477677}
   - component: {fileID: 4811029452043113051}
   - component: {fileID: 4878020086438409413}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: cm
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -107,7 +107,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8244549834146080080}
   - component: {fileID: 8877244178710454924}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Virtual Camera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -181,7 +181,7 @@ GameObject:
   - component: {fileID: 7255286724461151949}
   - component: {fileID: 1855436014713355844}
   - component: {fileID: 857647395290545500}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: DummyCamera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -324,7 +324,7 @@ GameObject:
   - component: {fileID: -2658135207549602099}
   - component: {fileID: 795093699915747362}
   - component: {fileID: 8951837553411048261}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -524,7 +524,7 @@ GameObject:
   - component: {fileID: 671235171544315573}
   - component: {fileID: 2335385090937898412}
   - component: {fileID: 7737803761708904513}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Main Camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
