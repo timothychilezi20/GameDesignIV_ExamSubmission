@@ -4,6 +4,10 @@ using System.Collections.Generic;
 
 public class Gossipier : MonoBehaviour
 {
+    // Map
+    [Header("Map Identity")]
+    [SerializeField] private int _mapPlayerNumber = 1; // set to 1 or 2 in Inspector
+
     // ─── Routes ───────────────────────────────────────────────────
     [Header("Routes")]
     [Tooltip("Assign 3 route parents. Each parent's children are its waypoints.")]
@@ -216,18 +220,27 @@ public class Gossipier : MonoBehaviour
 
     private void LogPlayerSpotted(Transform player)
     {
-        PlayerController playerController= player.GetComponent<PlayerController>();
+        PlayerController playerController = player.GetComponent<PlayerController>();
+        PlayerUIManager playerUI = player.GetComponent<PlayerUIManager>();
+        int playerNumber = playerUI != null ? playerUI.GetPlayerNumber() : 0;
+
+        string playerLabel = playerNumber > 0 ? $"Player {playerNumber}" : "A player";
 
         if (playerController == null || !playerController.IsInArea)
         {
-            Debug.Log("Player spotted in hallway");
+            Debug.Log($"{playerLabel} spotted in hallway (Map {_mapPlayerNumber})");
             return;
         }
 
-        if (playerController.CurrentAreaType == SchoolArea.AreaType.Interior)
-            Debug.Log($"Player seen inside {playerController.CurrentAreaName}");
-        else
-            Debug.Log($"Player seen at {playerController.CurrentAreaName}");
+        string areaName = playerController.CurrentAreaName;
+        bool isInterior = playerController.CurrentAreaType == SchoolArea.AreaType.Interior;
+
+        Debug.Log($"{playerLabel} seen {(isInterior ? "inside" : "at")} {areaName}");
+
+        // Added: send sighting to RumorManager which routes it
+        // to the other player's rumor feed via ClientRpc
+        if (playerNumber > 0 && RumorManager.Instance != null)
+            RumorManager.Instance.ReportSpottingServerRpc(playerNumber, areaName, isInterior);
     }
 
     // ─── Area Tracking ────────────────────────────────────────────
