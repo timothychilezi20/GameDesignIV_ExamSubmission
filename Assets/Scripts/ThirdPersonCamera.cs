@@ -19,8 +19,8 @@ public class ThirdPersonCamera : MonoBehaviour
     private void OnEnable()
     {
         controls = new GameInput();
-        controls.Enable();
-
+        controls.Disable();
+        controls.PlayerMovement.Enable();
         controls.PlayerMovement.Look.performed += ctx =>
             lookInput = ctx.ReadValue<Vector2>();
 

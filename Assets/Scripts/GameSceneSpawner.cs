@@ -1,7 +1,6 @@
 using UnityEngine;
-using Unity.Netcode;
 
-public class GameSceneSpawner : NetworkBehaviour
+public class GameSceneSpawner : Unity.Netcode.NetworkBehaviour
 {
     [Header("Player Prefab")]
     [SerializeField] private GameObject playerPrefab;
@@ -13,18 +12,23 @@ public class GameSceneSpawner : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         if (!IsServer) return;
-
         SpawnPlayers();
     }
 
     private void SpawnPlayers()
     {
-        foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+        foreach (ulong clientId in Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds)
         {
             Transform spawnPoint =
-                clientId == NetworkManager.ServerClientId
+                clientId == Unity.Netcode.NetworkManager.ServerClientId
                 ? hostSpawn
                 : clientSpawn;
+
+            if (spawnPoint == null)
+            {
+                Debug.LogError($"Spawn point is null for ClientId {clientId}");
+                continue;
+            }
 
             GameObject player = Instantiate(
                 playerPrefab,
@@ -32,12 +36,16 @@ public class GameSceneSpawner : NetworkBehaviour
                 spawnPoint.rotation
             );
 
-            player.GetComponent<NetworkObject>()
-                .SpawnAsPlayerObject(clientId, true);
+            Unity.Netcode.NetworkObject netObj = player.GetComponent<Unity.Netcode.NetworkObject>();
 
-            Debug.Log(
-                $"Spawned player for ClientId {clientId} at {spawnPoint.name}"
-            );
+            if (netObj == null)
+            {
+                Debug.LogError("Player prefab is missing a NetworkObject component!");
+                continue;
+            }
+
+            netObj.SpawnAsPlayerObject(clientId, true);
+            Debug.Log($"Spawned player for ClientId {clientId} at {spawnPoint.name}");
         }
     }
 }

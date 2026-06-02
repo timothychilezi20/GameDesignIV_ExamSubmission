@@ -6,7 +6,8 @@ using System.Collections.Generic;
 public class PlayerSpawner : NetworkBehaviour
 {
     [Header("Player Prefab")]
-    [SerializeField] private GameObject playerPrefab;
+    [SerializeField] private GameObject malePlayerPrefab;
+    [SerializeField] private GameObject femalePlayerPrefab;
 
     [Header("Spawn Points")]
     [SerializeField] private Transform[] spawnPoints;
@@ -62,8 +63,19 @@ public class PlayerSpawner : NetworkBehaviour
         Vector3 spawnPosition = spawnPoints[spawnIndex].position;
         Quaternion spawnRotation = spawnPoints[spawnIndex].rotation;
 
+        GameObject prefabToSpawn;
+
+        if (clientId == NetworkManager.ServerClientId)
+        {
+            prefabToSpawn = malePlayerPrefab;
+        }
+        else
+        {
+            prefabToSpawn = femalePlayerPrefab;
+        }
+
         GameObject player = Instantiate(
-            playerPrefab,
+            prefabToSpawn,
             spawnPosition,
             spawnRotation
         );
@@ -71,7 +83,8 @@ public class PlayerSpawner : NetworkBehaviour
         NetworkObject netObj = player.GetComponent<NetworkObject>();
         netObj.SpawnAsPlayerObject(clientId, true);
 
-        Debug.Log($"Spawned player for Client {clientId} at {spawnPosition}");
+        Debug.Log(
+        $"Spawned {(clientId == NetworkManager.ServerClientId ? "Male" : "Female")} player for Client {clientId}"); 
     }
 
     public override void OnDestroy()

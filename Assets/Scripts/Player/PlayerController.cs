@@ -7,6 +7,7 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 {
     [Header("References")]
     [SerializeField] private CharacterController controller;
+    [SerializeField] private Animator animator; 
 
     private Camera mainCam;
     private PlayerControls controls;
@@ -15,6 +16,7 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float gravity = -20f;
+    [SerializeField] private float jumpForce = 8f;
 
     [Header("Smoothing")]
     [SerializeField] private float acceleration = 10f;
@@ -22,6 +24,8 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     private float verticalVelocity;
     private Vector3 currentVelocity;
     private Transform camTransform;
+
+    private bool jumpPressed;
 
     // ─── Added: NetworkVariables for remote player interpolation ──
     // The owner updates these every frame via ServerRpc.
@@ -35,6 +39,20 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 
     private NetworkVariable<Quaternion> _networkRotation = new NetworkVariable<Quaternion>(
         Quaternion.identity,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    //NETWORK ANIMATION VARIABLES
+
+    private NetworkVariable<float> _animSpeed = new NetworkVariable<float>(
+        0f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> _isGrounded = new NetworkVariable<bool>(
+        true,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
@@ -64,6 +82,7 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 
         controls = new PlayerControls();
         controls.Enable();
+
         controls.PlayerMovement.SetCallbacks(this);
 
         moveInput = Vector2.zero;
@@ -113,6 +132,16 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         moveInput = context.ReadValue<Vector2>();
     }
 
+    public void OnJump(InputAction.CallbackContext context)
+    {
+        if (!IsOwner) return;
+        
+        if (context.performed)
+        {
+            jumpPressed = true;
+        }
+    }
+
     public void OnLook(InputAction.CallbackContext context) { }
     public void OnPause(InputAction.CallbackContext context) { }
 
@@ -145,6 +174,10 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
                 Time.deltaTime * 15f
             );
             // ─────────────────────────────────────────────────────
+
+            //REMOTE PLAYER ANIMATION
+                animator.SetFloat("Speed", _animSpeed.Value, 0.1f, Time.deltaTime);
+                animator.SetBool("IsGrounded", _isGrounded.Value);
         }
     }
 
@@ -180,8 +213,17 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
             );
         }
 
-        if (controller.isGrounded && verticalVelocity < 0f)
-            verticalVelocity = -2f;
+        if (controller.isGrounded)
+        {
+            if (verticalVelocity < 0f)
+                verticalVelocity = -2f;
+
+            if (jumpPressed)
+            {
+                verticalVelocity = jumpForce;
+                jumpPressed = false;
+            }
+        }
 
         verticalVelocity += gravity * Time.deltaTime;
 
@@ -202,12 +244,24 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 
         controller.Move(currentVelocity * Time.deltaTime);
 
+        float animationSpeed = moveInput.magnitude;
+        animationSpeed = Mathf.Clamp01(animationSpeed);
+
+        if (animationSpeed < 0.15f)
+        {
+            animationSpeed = 0f;
+        }
+
+        animator.SetFloat("Speed", animationSpeed, 0.1f, Time.deltaTime);
+        animator.SetBool("IsGrounded", controller.isGrounded);
+
         // ─── Added: Send position and rotation to server ──────────
         // After moving locally, the owner tells the server its new
         // transform so the server can update the NetworkVariables
         // which replicate out to all other connected clients.
         UpdateTransformServerRpc(transform.position, transform.rotation);
         // ─────────────────────────────────────────────────────────
+        UpdateAnimationServerRpc(animationSpeed, controller.isGrounded);
     }
 
     // ─── Added: ServerRpc ─────────────────────────────────────────
@@ -221,6 +275,12 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         _networkRotation.Value = rotation;
     }
     // ─────────────────────────────────────────────────────────────
+    [ServerRpc]
+    private void UpdateAnimationServerRpc(float speed, bool isGrounded)
+    {
+        _animSpeed.Value = speed;
+        _isGrounded.Value = isGrounded;
+    }
 
     // ─── Area Tracking Triggers ───────────────────────────────────
     private void OnTriggerEnter(Collider other)
