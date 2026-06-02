@@ -232,6 +232,34 @@
                     "isPartOfComposite": false
                 }
             ]
+        },
+        {
+            "name": "Voting",
+            "id": "82cc7d46-6f1b-4db6-bf71-4150e24d0506",
+            "actions": [
+                {
+                    "name": "CollectVotes",
+                    "type": "Button",
+                    "id": "e9a2fb0a-723d-48bc-9429-25a7ceb83a84",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "e1e6fd8e-bb3a-4abe-be6f-f4481eb00a2d",
+                    "path": "<Keyboard>/e",
+                    "interactions": "Hold",
+                    "processors": "",
+                    "groups": "",
+                    "action": "CollectVotes",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
         }
     ],
     "controlSchemes": []

@@ -3,7 +3,7 @@ using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
 
-public class ClonePlayerScript : NetworkBehaviour, GameInput.IPlayerMovementActions
+public class ClonePlayerScript : NetworkBehaviour, GameInput.IPlayerMovementActions, GameInput.IVotingActions
 {
     [Header("References")]
     [SerializeField] private CharacterController cloneController;
@@ -31,6 +31,8 @@ public class ClonePlayerScript : NetworkBehaviour, GameInput.IPlayerMovementActi
     private bool cloneJumpPressed;
     private float lastAnimSpeed = -1f;
     private bool lastGroundedState = true;
+
+    private BallotCollector _ballotCollector;
 
     // ─────────────────────────────────────────
     // NETWORK TRANSFORM VARIABLES
@@ -369,25 +371,56 @@ public class ClonePlayerScript : NetworkBehaviour, GameInput.IPlayerMovementActi
     // ─────────────────────────────────────────
 
     private void OnTriggerEnter(Collider other)
+   {
+       SchoolArea area = other.GetComponent<SchoolArea>();
+       if (area != null)
+       {
+           CloneCurrentAreaName = area.areaName;
+           CloneCurrentAreaType = area.areaType;
+           CloneIsInArea = true;
+       }
+
+       CliqueGroup group = other.GetComponent<CliqueGroup>();
+       if (group != null)
+           group.SetNearbyPlayer(transform);
+
+       VotingStation station = other.GetComponent<VotingStation>();
+       if (station != null)
+           _ballotCollector.SetCurrentStation(station);
+
+   }
+
+   private void OnTriggerExit(Collider other)
+   {
+       SchoolArea area = other.GetComponent<SchoolArea>();
+       if (area != null)
+       {
+           CloneIsInArea = false;
+           CloneCurrentAreaName = "Unknown Area";
+       }
+
+       CliqueGroup group = other.GetComponent<CliqueGroup>();
+       if (group != null)
+           group.ClearNearbyPlayer();
+
+       VotingStation station = other.GetComponent<VotingStation>();
+       if (station != null)
+           _ballotCollector.ClearCurrentStation();
+   }
+
+    public void OnCollectVotes(InputAction.CallbackContext context)
     {
-        SchoolArea area = other.GetComponent<SchoolArea>();
+        if (!IsOwner || _ballotCollector == null) return;
 
-        if (area == null)
-            return;
+        if (context.started)
+        {
+            _ballotCollector.TryDumpBallots();
+            _ballotCollector.OnCollectVotesStarted();
+        }
 
-        CloneCurrentAreaName = area.areaName;
-        CloneCurrentAreaType = area.areaType;
-        CloneIsInArea = true;
-    }
-
-    private void OnTriggerExit(Collider other)
-    {
-        SchoolArea area = other.GetComponent<SchoolArea>();
-
-        if (area == null)
-            return;
-
-        CloneIsInArea = false;
-        CloneCurrentAreaName = "Unknown Area";
+        else if (context.performed)
+            _ballotCollector.OnCollectVotesPerformed();
+        else if (context.canceled)
+            _ballotCollector.OnCollectVotesCancelled();
     }
 }

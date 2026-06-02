@@ -220,20 +220,20 @@ public class Gossipier : MonoBehaviour
 
     private void LogPlayerSpotted(Transform player)
     {
-        PlayerController playerController = player.GetComponent<PlayerController>();
+        ClonePlayerScript playerController = player.GetComponent<ClonePlayerScript>();
         PlayerUIManager playerUI = player.GetComponent<PlayerUIManager>();
         int playerNumber = playerUI != null ? playerUI.GetPlayerNumber() : 0;
 
         string playerLabel = playerNumber > 0 ? $"Player {playerNumber}" : "A player";
 
-        if (playerController == null || !playerController.IsInArea)
+        if (playerController == null || !playerController.CloneIsInArea)
         {
             Debug.Log($"{playerLabel} spotted in hallway (Map {_mapPlayerNumber})");
             return;
         }
 
-        string areaName = playerController.CurrentAreaName;
-        bool isInterior = playerController.CurrentAreaType == SchoolArea.AreaType.Interior;
+        string areaName = playerController.CloneCurrentAreaName;
+        bool isInterior = playerController.CloneCurrentAreaType == SchoolArea.AreaType.Interior;
 
         Debug.Log($"{playerLabel} seen {(isInterior ? "inside" : "at")} {areaName}");
 

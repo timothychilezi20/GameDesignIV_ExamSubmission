@@ -318,6 +318,34 @@ public partial class @GameInput: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""Voting"",
+            ""id"": ""82cc7d46-6f1b-4db6-bf71-4150e24d0506"",
+            ""actions"": [
+                {
+                    ""name"": ""CollectVotes"",
+                    ""type"": ""Button"",
+                    ""id"": ""e9a2fb0a-723d-48bc-9429-25a7ceb83a84"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""e1e6fd8e-bb3a-4abe-be6f-f4481eb00a2d"",
+                    ""path"": ""<Keyboard>/e"",
+                    ""interactions"": ""Hold"",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""CollectVotes"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": []
@@ -328,11 +356,15 @@ public partial class @GameInput: IInputActionCollection2, IDisposable
         m_PlayerMovement_Look = m_PlayerMovement.FindAction("Look", throwIfNotFound: true);
         m_PlayerMovement_Pause = m_PlayerMovement.FindAction("Pause", throwIfNotFound: true);
         m_PlayerMovement_Jump = m_PlayerMovement.FindAction("Jump", throwIfNotFound: true);
+        // Voting
+        m_Voting = asset.FindActionMap("Voting", throwIfNotFound: true);
+        m_Voting_CollectVotes = m_Voting.FindAction("CollectVotes", throwIfNotFound: true);
     }
 
     ~@GameInput()
     {
         UnityEngine.Debug.Assert(!m_PlayerMovement.enabled, "This will cause a leak and performance issues, GameInput.PlayerMovement.Disable() has not been called.");
+        UnityEngine.Debug.Assert(!m_Voting.enabled, "This will cause a leak and performance issues, GameInput.Voting.Disable() has not been called.");
     }
 
     /// <summary>
@@ -533,6 +565,102 @@ public partial class @GameInput: IInputActionCollection2, IDisposable
     /// Provides a new <see cref="PlayerMovementActions" /> instance referencing this action map.
     /// </summary>
     public PlayerMovementActions @PlayerMovement => new PlayerMovementActions(this);
+
+    // Voting
+    private readonly InputActionMap m_Voting;
+    private List<IVotingActions> m_VotingActionsCallbackInterfaces = new List<IVotingActions>();
+    private readonly InputAction m_Voting_CollectVotes;
+    /// <summary>
+    /// Provides access to input actions defined in input action map "Voting".
+    /// </summary>
+    public struct VotingActions
+    {
+        private @GameInput m_Wrapper;
+
+        /// <summary>
+        /// Construct a new instance of the input action map wrapper class.
+        /// </summary>
+        public VotingActions(@GameInput wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "Voting/CollectVotes".
+        /// </summary>
+        public InputAction @CollectVotes => m_Wrapper.m_Voting_CollectVotes;
+        /// <summary>
+        /// Provides access to the underlying input action map instance.
+        /// </summary>
+        public InputActionMap Get() { return m_Wrapper.m_Voting; }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Enable()" />
+        public void Enable() { Get().Enable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Disable()" />
+        public void Disable() { Get().Disable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.enabled" />
+        public bool enabled => Get().enabled;
+        /// <summary>
+        /// Implicitly converts an <see ref="VotingActions" /> to an <see ref="InputActionMap" /> instance.
+        /// </summary>
+        public static implicit operator InputActionMap(VotingActions set) { return set.Get(); }
+        /// <summary>
+        /// Adds <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <param name="instance">Callback instance.</param>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c> or <paramref name="instance"/> have already been added this method does nothing.
+        /// </remarks>
+        /// <seealso cref="VotingActions" />
+        public void AddCallbacks(IVotingActions instance)
+        {
+            if (instance == null || m_Wrapper.m_VotingActionsCallbackInterfaces.Contains(instance)) return;
+            m_Wrapper.m_VotingActionsCallbackInterfaces.Add(instance);
+            @CollectVotes.started += instance.OnCollectVotes;
+            @CollectVotes.performed += instance.OnCollectVotes;
+            @CollectVotes.canceled += instance.OnCollectVotes;
+        }
+
+        /// <summary>
+        /// Removes <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <remarks>
+        /// Calling this method when <paramref name="instance" /> have not previously been registered has no side-effects.
+        /// </remarks>
+        /// <seealso cref="VotingActions" />
+        private void UnregisterCallbacks(IVotingActions instance)
+        {
+            @CollectVotes.started -= instance.OnCollectVotes;
+            @CollectVotes.performed -= instance.OnCollectVotes;
+            @CollectVotes.canceled -= instance.OnCollectVotes;
+        }
+
+        /// <summary>
+        /// Unregisters <param cref="instance" /> and unregisters all input action callbacks via <see cref="VotingActions.UnregisterCallbacks(IVotingActions)" />.
+        /// </summary>
+        /// <seealso cref="VotingActions.UnregisterCallbacks(IVotingActions)" />
+        public void RemoveCallbacks(IVotingActions instance)
+        {
+            if (m_Wrapper.m_VotingActionsCallbackInterfaces.Remove(instance))
+                UnregisterCallbacks(instance);
+        }
+
+        /// <summary>
+        /// Replaces all existing callback instances and previously registered input action callbacks associated with them with callbacks provided via <param cref="instance" />.
+        /// </summary>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c>, calling this method will only unregister all existing callbacks but not register any new callbacks.
+        /// </remarks>
+        /// <seealso cref="VotingActions.AddCallbacks(IVotingActions)" />
+        /// <seealso cref="VotingActions.RemoveCallbacks(IVotingActions)" />
+        /// <seealso cref="VotingActions.UnregisterCallbacks(IVotingActions)" />
+        public void SetCallbacks(IVotingActions instance)
+        {
+            foreach (var item in m_Wrapper.m_VotingActionsCallbackInterfaces)
+                UnregisterCallbacks(item);
+            m_Wrapper.m_VotingActionsCallbackInterfaces.Clear();
+            AddCallbacks(instance);
+        }
+    }
+    /// <summary>
+    /// Provides a new <see cref="VotingActions" /> instance referencing this action map.
+    /// </summary>
+    public VotingActions @Voting => new VotingActions(this);
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "PlayerMovement" which allows adding and removing callbacks.
     /// </summary>
@@ -568,5 +696,20 @@ public partial class @GameInput: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnJump(InputAction.CallbackContext context);
+    }
+    /// <summary>
+    /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "Voting" which allows adding and removing callbacks.
+    /// </summary>
+    /// <seealso cref="VotingActions.AddCallbacks(IVotingActions)" />
+    /// <seealso cref="VotingActions.RemoveCallbacks(IVotingActions)" />
+    public interface IVotingActions
+    {
+        /// <summary>
+        /// Method invoked when associated input action "CollectVotes" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCollectVotes(InputAction.CallbackContext context);
     }
 }

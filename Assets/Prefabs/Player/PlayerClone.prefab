@@ -739,7 +739,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 628824429
+  GlobalObjectIdHash: 2889947241
   InScenePlacedSourceGlobalObjectIdHash: 628824429
   DeferredDespawnTick: 0
   Ownership: 1
@@ -766,8 +766,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   ShowTopMostFoldoutHeaderGroup: 1
   controller: {fileID: 3244686801815822521}
+  animator: {fileID: 0}
   moveSpeed: 4
   gravity: -20
+  jumpForce: 8
   acceleration: 10
 --- !u!114 &8254874618461181036
 MonoBehaviour:
