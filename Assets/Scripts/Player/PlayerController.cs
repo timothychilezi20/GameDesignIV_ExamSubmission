@@ -3,7 +3,11 @@ using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
 
-public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovementActions
+// Added: IPlayerVotingActions to the interface list
+// so the Voting action map callbacks wire up correctly
+public class PlayerController : NetworkBehaviour,
+    PlayerControls.IPlayerMovementActions,
+    PlayerControls.IVotingActions
 {
     [Header("References")]
     [SerializeField] private CharacterController controller;
@@ -23,10 +27,9 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     private Vector3 currentVelocity;
     private Transform camTransform;
 
-    // ─── Added: NetworkVariables for remote player interpolation ──
-    // The owner updates these every frame via ServerRpc.
-    // Remote clients read them in Update to smoothly interpolate
-    // the non-owned player object instead of snapping/teleporting.
+    // Added: reference to BallotCollector on the same prefab
+    private BallotCollector _ballotCollector;
+
     private NetworkVariable<Vector3> _networkPosition = new NetworkVariable<Vector3>(
         Vector3.zero,
         NetworkVariableReadPermission.Everyone,
@@ -38,13 +41,10 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
-    // ─────────────────────────────────────────────────────────────
 
-    // ─── Area Tracking ────────────────────────────────────────────
     public string CurrentAreaName { get; private set; } = "Unknown Area";
     public SchoolArea.AreaType CurrentAreaType { get; private set; }
     public bool IsInArea { get; private set; } = false;
-    // ─────────────────────────────────────────────────────────────
 
     public override void OnNetworkSpawn()
     {
@@ -57,9 +57,16 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 
         controller.enabled = true;
 
+        // Added: grab BallotCollector on spawn
+        _ballotCollector = GetComponent<BallotCollector>();
+
         controls = new PlayerControls();
         controls.Enable();
         controls.PlayerMovement.SetCallbacks(this);
+
+        // Added: register Voting action map callbacks
+        controls.Voting.Enable();
+        controls.Voting.SetCallbacks(this);
 
         moveInput = Vector2.zero;
         verticalVelocity = 0f;
@@ -70,12 +77,9 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     private IEnumerator AssignCamera()
     {
         yield return null;
-
         mainCam = Camera.main;
         if (mainCam == null) yield break;
-
         camTransform = mainCam.transform;
-
         ThirdPersonCamera camFollow = mainCam.GetComponent<ThirdPersonCamera>();
         if (camFollow != null)
             camFollow.SetTarget(transform);
@@ -84,8 +88,10 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     public override void OnNetworkDespawn()
     {
         if (!IsOwner) return;
-
         controls.PlayerMovement.RemoveCallbacks(this);
+
+        // Added: clean up Voting callbacks on despawn
+        controls.Voting.RemoveCallbacks(this);
         controls.Disable();
     }
 
@@ -100,6 +106,27 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
     public void OnLook(InputAction.CallbackContext context) { }
     public void OnPause(InputAction.CallbackContext context) { }
 
+    // Added: Voting action map callback
+    // The Hold interaction fires three phases:
+    // Started  = player began holding E
+    // Performed = hold duration completed successfully
+    // Canceled  = player released E before hold completed
+    public void OnCollectVotes(InputAction.CallbackContext context)
+    {
+        if (!IsOwner || _ballotCollector == null) return;
+
+        if (context.started)
+        {
+            _ballotCollector.TryDumpBallots();
+            _ballotCollector.OnCollectVotesStarted();
+        }
+            
+        else if (context.performed)
+            _ballotCollector.OnCollectVotesPerformed();
+        else if (context.canceled)
+            _ballotCollector.OnCollectVotesCancelled();
+    }
+
     // ---------------- UPDATE ----------------
 
     private void Update()
@@ -110,11 +137,6 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         }
         else
         {
-            // ─── Added: Remote player interpolation ───────────────
-            // Non-owned players read the NetworkVariables written by
-            // the owner's ServerRpc and smoothly lerp toward them.
-            // Without this remote players snap to new positions
-            // every network tick instead of moving fluidly.
             transform.position = Vector3.Lerp(
                 transform.position,
                 _networkPosition.Value,
@@ -125,8 +147,12 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
                 _networkRotation.Value,
                 Time.deltaTime * 15f
             );
-            // ─────────────────────────────────────────────────────
         }
+
+
+
+
+        
     }
 
     // ---------------- MOVEMENT ----------------
@@ -140,13 +166,10 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
 
         forward.y = 0f;
         right.y = 0f;
-
         forward.Normalize();
         right.Normalize();
 
-        Vector3 inputDirection =
-            forward * moveInput.y +
-            right * moveInput.x;
+        Vector3 inputDirection = forward * moveInput.y + right * moveInput.x;
 
         if (inputDirection.magnitude > 1f)
             inputDirection.Normalize();
@@ -169,58 +192,60 @@ public class PlayerController : NetworkBehaviour, PlayerControls.IPlayerMovement
         Vector3 targetVelocity = inputDirection * moveSpeed;
         Vector3 horizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
-        horizontal = Vector3.Lerp(
-            horizontal,
-            targetVelocity,
-            acceleration * Time.deltaTime
-        );
+        horizontal = Vector3.Lerp(horizontal, targetVelocity, acceleration * Time.deltaTime);
 
-        currentVelocity = new Vector3(
-            horizontal.x,
-            verticalVelocity,
-            horizontal.z
-        );
+        currentVelocity = new Vector3(horizontal.x, verticalVelocity, horizontal.z);
 
         controller.Move(currentVelocity * Time.deltaTime);
-
-        // ─── Added: Send position and rotation to server ──────────
-        // After moving locally, the owner tells the server its new
-        // transform so the server can update the NetworkVariables
-        // which replicate out to all other connected clients.
         UpdateTransformServerRpc(transform.position, transform.rotation);
-        // ─────────────────────────────────────────────────────────
     }
 
-    // ─── Added: ServerRpc ─────────────────────────────────────────
-    // Runs on the server when called by the owning client.
-    // Updates NetworkVariables which automatically broadcast
-    // to all other clients on the next network tick.
     [ServerRpc]
     private void UpdateTransformServerRpc(Vector3 position, Quaternion rotation)
     {
         _networkPosition.Value = position;
         _networkRotation.Value = rotation;
     }
-    // ─────────────────────────────────────────────────────────────
 
-    // ─── Area Tracking Triggers ───────────────────────────────────
+    // Added: CliqueGroup proximity tracking via trigger
+    // The player's trigger CapsuleCollider detects when it
+    // overlaps a Group object and tells it a player is nearby
+    // so members can start rotating to face the player
     private void OnTriggerEnter(Collider other)
     {
         SchoolArea area = other.GetComponent<SchoolArea>();
-        if (area == null) return;
+        if (area != null)
+        {
+            CurrentAreaName = area.areaName;
+            CurrentAreaType = area.areaType;
+            IsInArea = true;
+        }
 
-        CurrentAreaName = area.areaName;
-        CurrentAreaType = area.areaType;
-        IsInArea = true;
+        CliqueGroup group = other.GetComponent<CliqueGroup>();
+        if (group != null)
+            group.SetNearbyPlayer(transform);
+
+        VotingStation station = other.GetComponent<VotingStation>();
+        if (station != null)
+            _ballotCollector.SetCurrentStation(station);
+
     }
 
     private void OnTriggerExit(Collider other)
     {
         SchoolArea area = other.GetComponent<SchoolArea>();
-        if (area == null) return;
+        if (area != null)
+        {
+            IsInArea = false;
+            CurrentAreaName = "Unknown Area";
+        }
 
-        IsInArea = false;
-        CurrentAreaName = "Unknown Area";
+        CliqueGroup group = other.GetComponent<CliqueGroup>();
+        if (group != null)
+            group.ClearNearbyPlayer();
+
+        VotingStation station = other.GetComponent<VotingStation>();
+        if (station != null)
+            _ballotCollector.ClearCurrentStation();
     }
-    // ─────────────────────────────────────────────────────────────
 }

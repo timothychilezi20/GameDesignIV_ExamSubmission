@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: 795093699915747362}
   - component: {fileID: 8254874618461181036}
   - component: {fileID: 8272822494672019367}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -185,10 +185,7 @@ MonoBehaviour:
   controller: {fileID: 3244686801815822521}
   moveSpeed: 4
   gravity: -20
-  rotationSpeed: 2
-  cameraOffset: {x: 0, y: 6, z: -4}
-  cameraSmoothSpeed: 10
-  cameraLookHeight: 1.5
+  acceleration: 10
 --- !u!114 &8254874618461181036
 MonoBehaviour:
   m_ObjectHideFlags: 0
