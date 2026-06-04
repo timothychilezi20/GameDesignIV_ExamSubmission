@@ -344,6 +344,17 @@ public partial class @GameInput: IInputActionCollection2, IDisposable
                     ""action"": ""CollectVotes"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""585acccb-571e-4b72-b929-8167d017ba50"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""CollectVotes"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }

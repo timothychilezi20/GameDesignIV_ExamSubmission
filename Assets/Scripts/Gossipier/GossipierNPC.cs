@@ -220,7 +220,7 @@ public class Gossipier : MonoBehaviour
 
     private void LogPlayerSpotted(Transform player)
     {
-        ClonePlayerScript playerController = player.GetComponent<ClonePlayerScript>();
+        apayinCloneScript playerController = player.GetComponent<apayinCloneScript>();
         PlayerUIManager playerUI = player.GetComponent<PlayerUIManager>();
         int playerNumber = playerUI != null ? playerUI.GetPlayerNumber() : 0;
 

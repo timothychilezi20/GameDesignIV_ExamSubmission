@@ -35,17 +35,26 @@ public class RumorManager : NetworkBehaviour
     [ClientRpc]
     private void SendToRecipientClientRpc(int spottedPlayerNumber, string areaName, bool isInterior, int recipientPlayerNumber)
     {
-        // Find all PlayerUIManagers in the scene — one per spawned player
-        PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
+        
+            Debug.Log($"ClientRpc received — spotted: {spottedPlayerNumber} | recipient: {recipientPlayerNumber} | area: {areaName}");
+
+            // Find all PlayerUIManagers in the scene — one per spawned player
+            PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
+        Debug.Log($"PlayerUIManagers found: {allPlayers.Length}");
 
         foreach (PlayerUIManager uiManager in allPlayers)
         {
+
+            Debug.Log($"Checking UIManager — IsOwner: {uiManager.IsOwner} | PlayerNumber: {uiManager.GetPlayerNumber()}");
+
             // Only the local owner whose player number matches the recipient
             if (!uiManager.IsOwner) continue;
             if (uiManager.GetPlayerNumber() != recipientPlayerNumber) continue;
 
             // Found the correct local player — get their RumorFeed and add the entry
             RumorFeed feed = uiManager.GetComponentInChildren<RumorFeed>(true);
+            Debug.Log($"RumorFeed found: {feed != null}");
+
             if (feed == null) continue;
 
             string playerLabel = $"Player {spottedPlayerNumber}";
