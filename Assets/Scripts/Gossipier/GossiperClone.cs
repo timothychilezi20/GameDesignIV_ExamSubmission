@@ -59,6 +59,7 @@ public class GossiperClone : MonoBehaviour
         StartCoroutine(DetectionRoutine());
     }
 
+
     private void LateUpdate()
     {
         float velocity = Vector3.Distance(transform.position, _lastPosition) / Time.deltaTime;
@@ -138,9 +139,7 @@ public class GossiperClone : MonoBehaviour
     private void Update()
     {
         if (_isSpinning || _currentWaypoints == null || _currentWaypoints.Length == 0)
-        {
-            return;
-        }
+            return; // no movement at all while spinning or scanning
 
         MoveTowardsWaypoint();
     }
@@ -216,7 +215,7 @@ public class GossiperClone : MonoBehaviour
 
     private IEnumerator SpinRoutine()
     {
-        _isSpinning = true; // still set it here for when called standalone
+        _isSpinning = true;
 
         SetScanning(true);
 
@@ -229,6 +228,11 @@ public class GossiperClone : MonoBehaviour
         }
 
         SetScanning(false);
+
+        // Wait for the Look Around animation to fully transition back out
+        yield return new WaitUntil(() =>
+            !_animator.GetCurrentAnimatorStateInfo(0).IsName("Look Around"));
+
         _isSpinning = false;
         AdvanceWaypoint();
     }
@@ -360,51 +364,22 @@ public class GossiperClone : MonoBehaviour
     {
         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
 
-        yield return null; // wait one frame for trigger to register
+        yield return null; // wait for trigger to register
 
-        Debug.Log($"[Turn] Waiting to enter Turn state. Current: {_animator.GetCurrentAnimatorStateInfo(0).fullPathHash}");
-
-        // Timeout safety net
+        // Wait to enter Turning state
         float timeout = 2f;
         float elapsed = 0f;
-
-        // Wait until we're in the Turning state
         while (!_animator.GetCurrentAnimatorStateInfo(0).IsName("Turning"))
         {
             elapsed += Time.deltaTime;
-            if (elapsed >= timeout)
-            {
-                Debug.LogWarning("[Turn] Timed out waiting to ENTER Turning state. Skipping.");
-                transform.rotation = targetRotation;
-                yield break;
-            }
+            if (elapsed >= timeout) { transform.rotation = targetRotation; yield break; }
             yield return null;
         }
 
-        Debug.Log("[Turn] Entered Turning state.");
-        elapsed = 0f;
+        // Read the actual clip length and wait that long
+        float clipLength = _animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(clipLength);
 
-        // Wait until it finishes
-        while (true)
-        {
-            AnimatorStateInfo info = _animator.GetCurrentAnimatorStateInfo(0);
-            elapsed += Time.deltaTime;
-
-            Debug.Log($"[Turn] normalizedTime: {info.normalizedTime:F2}, isName: {info.IsName("Turning")}");
-
-            if (info.IsName("Turning") && info.normalizedTime >= 0.95f)
-                break;
-
-            if (elapsed >= timeout)
-            {
-                Debug.LogWarning("[Turn] Timed out waiting for Turning to FINISH. Skipping.");
-                break;
-            }
-
-            yield return null;
-        }
-
-        Debug.Log("[Turn] Turn complete.");
         transform.rotation = targetRotation;
     }
 }
