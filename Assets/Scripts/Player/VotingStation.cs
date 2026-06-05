@@ -3,45 +3,50 @@ using Unity.Netcode;
 
 public class VotingStation : MonoBehaviour
 {
-    private BallotCollector _playerInsideStation = null;
-
     private void OnTriggerEnter(Collider other)
     {
+        // Try both BallotCollector directly and via NetworkObject
         BallotCollector ballot = other.GetComponent<BallotCollector>();
-        if (ballot == null || !ballot.IsOwner) return;
 
-        _playerInsideStation = ballot;
-        Debug.Log("Entered voting station — press E to dump ballots");
+        // Also check parent in case collider is on a child object
+        if (ballot == null)
+            ballot = other.GetComponentInParent<BallotCollector>();
+
+        if (ballot == null) return;
+
+        // Don't require IsOwner here — let BallotCollector's own
+        // IsOwner checks handle authority. This way both host and
+        // client trigger detection works regardless of CC state.
+        ballot.SetCurrentStation(this);
+        Debug.Log($"Player entered voting station — ballots: {ballot.GetBallotCount()}");
     }
 
     private void OnTriggerExit(Collider other)
     {
         BallotCollector ballot = other.GetComponent<BallotCollector>();
-        if (ballot == null || ballot != _playerInsideStation) return;
+        if (ballot == null)
+            ballot = other.GetComponentInParent<BallotCollector>();
+        if (ballot == null) return;
 
-        _playerInsideStation = null;
-        Debug.Log("Left voting station");
+        ballot.ClearCurrentStation();
+        Debug.Log("Player left voting station");
     }
 
+    // Simplified — no longer tracks _playerInsideStation locally.
+    // BallotCollector holds the station reference itself so authority
+    // checks happen on the NetworkBehaviour that owns the data.
     public void TryDumpBallots(BallotCollector ballotCollector)
     {
-        if (_playerInsideStation == null || _playerInsideStation != ballotCollector) return;
+        if (ballotCollector == null) return;
         if (ballotCollector.GetBallotCount() == 0)
         {
             Debug.Log("No ballots to dump");
             return;
         }
 
-        // Added: read categorised counts before clearing
-        // so we pass the breakdown to VoteManager correctly
-        int artists = ballotCollector.GetArtistBallots();
-        int nerds = ballotCollector.GetNerdBallots();
-        int athletes = ballotCollector.GetAthleteBallots();
-
-        ballotCollector.ClearBallots();
-
-        // Added: pass all three categories to VoteManager
-        // instead of a single lump total
-        VoteManager.Instance.AddVotesServerRpc(artists, nerds, athletes);
+        // Changed: let BallotCollector handle the ServerRpc call
+        // since it owns itself and can always call its own ServerRpcs
+        ballotCollector.DumpBallotsToServer();
+        Debug.Log("Ballots dumped to server");
     }
 }

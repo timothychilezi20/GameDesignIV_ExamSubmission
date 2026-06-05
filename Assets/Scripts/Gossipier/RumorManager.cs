@@ -18,47 +18,25 @@ public class RumorManager : NetworkBehaviour
         Instance = this;
     }
 
-    // Called by Gossipier.LogPlayerSpotted on the server.
-    // Routes the sighting to the OTHER player's rumor feed —
-    // spottings of Player 1 go to Player 2's feed and vice versa.
-    // RequireOwnership = false so Gossipier (not a NetworkObject owner)
-    // can call this from any client context.
-    [ServerRpc]
-    public void ReportSpottingServerRpc(int spottedPlayerNumber, string areaName, bool isInterior)
-    {
-        // Send to the player who is NOT the one spotted
-        int recipientPlayerNumber = spottedPlayerNumber == 1 ? 2 : 1;
-        SendToRecipientClientRpc(spottedPlayerNumber, areaName, isInterior, recipientPlayerNumber);
-    }
-
-    // Runs on ALL clients but only the matching player activates their feed
+    // Called by GossipRelay on the server — routes to recipient client
     [ClientRpc]
-    private void SendToRecipientClientRpc(int spottedPlayerNumber, string areaName, bool isInterior, int recipientPlayerNumber)
+    public void SendRumorClientRpc(int spottedPlayerNumber, string areaName, bool isInterior)
     {
-        
-            Debug.Log($"ClientRpc received — spotted: {spottedPlayerNumber} | recipient: {recipientPlayerNumber} | area: {areaName}");
+        int recipientPlayerNumber = spottedPlayerNumber == 1 ? 2 : 1;
 
-            // Find all PlayerUIManagers in the scene — one per spawned player
-            PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
-        Debug.Log($"PlayerUIManagers found: {allPlayers.Length}");
+        PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
+        Debug.Log($"SendRumorClientRpc — spotted: {spottedPlayerNumber} | recipient: {recipientPlayerNumber} | players found: {allPlayers.Length}");
 
         foreach (PlayerUIManager uiManager in allPlayers)
         {
-
-            Debug.Log($"Checking UIManager — IsOwner: {uiManager.IsOwner} | PlayerNumber: {uiManager.GetPlayerNumber()}");
-
-            // Only the local owner whose player number matches the recipient
             if (!uiManager.IsOwner) continue;
             if (uiManager.GetPlayerNumber() != recipientPlayerNumber) continue;
 
-            // Found the correct local player — get their RumorFeed and add the entry
             RumorFeed feed = uiManager.GetComponentInChildren<RumorFeed>(true);
-            Debug.Log($"RumorFeed found: {feed != null}");
-
+            Debug.Log($"Feed found: {feed != null}");
             if (feed == null) continue;
 
-            string playerLabel = $"Player {spottedPlayerNumber}";
-            feed.AddRumor(playerLabel, areaName, isInterior);
+            feed.AddRumor($"Player {spottedPlayerNumber}", areaName, isInterior);
         }
     }
 }

@@ -225,22 +225,29 @@ public class Gossipier : MonoBehaviour
         int playerNumber = playerUI != null ? playerUI.GetPlayerNumber() : 0;
 
         string playerLabel = playerNumber > 0 ? $"Player {playerNumber}" : "A player";
+        Debug.Log($"playerNumber: {playerNumber} | playerUI null: {playerUI == null}");
+        bool isInArea = playerController != null && playerController.CloneIsInArea;
+        string areaName = playerController != null ? playerController.CloneCurrentAreaName : "the hallway";
+        bool isInterior = playerController != null && playerController.CloneCurrentAreaType == SchoolArea.AreaType.Interior;
 
-        if (playerController == null || !playerController.CloneIsInArea)
+        Debug.Log($"{playerLabel} seen {(isInArea ? (isInterior ? "inside" : "at") + " " + areaName : "in hallway")}");
+
+        if (playerNumber == 0)
         {
-            Debug.Log($"{playerLabel} spotted in hallway (Map {_mapPlayerNumber})");
-            return;
+            Debug.Log("playerNumber is 0 — using map fallback");
+            playerNumber = _mapPlayerNumber;
         }
 
-        string areaName = playerController.CloneCurrentAreaName;
-        bool isInterior = playerController.CloneCurrentAreaType == SchoolArea.AreaType.Interior;
-
-        Debug.Log($"{playerLabel} seen {(isInterior ? "inside" : "at")} {areaName}");
-
-        // Added: send sighting to RumorManager which routes it
-        // to the other player's rumor feed via ClientRpc
-        if (playerNumber > 0 && RumorManager.Instance != null)
-            RumorManager.Instance.ReportSpottingServerRpc(playerNumber, areaName, isInterior);
+        // Find the local owned GossipRelay — only one call, no duplicates
+        GossipRelay[] relays = FindObjectsByType<GossipRelay>(FindObjectsSortMode.None);
+        Debug.Log($"GossipRelays found in scene: {relays.Length}");
+        foreach (GossipRelay relay in relays)
+        {
+            if (!relay.IsOwner) continue;
+            relay.SendSpottingReport(playerNumber, areaName, isInterior);
+            Debug.Log($"Relay on: {relay.gameObject.name} | IsOwner: {relay.IsOwner} | IsSpawned: {relay.IsSpawned}");
+            break;
+        }
     }
 
     // ─── Area Tracking ────────────────────────────────────────────

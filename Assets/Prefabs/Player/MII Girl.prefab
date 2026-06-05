@@ -549,8 +549,9 @@ GameObject:
   - component: {fileID: 8371256949550279748}
   - component: {fileID: 584541597841702672}
   - component: {fileID: 7356742328603288160}
-  - component: {fileID: 3170597868606838184}
   - component: {fileID: 5633444664855172892}
+  - component: {fileID: 2307744900510929241}
+  - component: {fileID: -3801428854023256736}
   m_Layer: 7
   m_Name: MII Girl
   m_TagString: Untagged
@@ -611,7 +612,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 8609569
+  GlobalObjectIdHash: 1965676040
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -759,25 +760,6 @@ MonoBehaviour:
   m_DefaultActionMap: 
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!114 &3170597868606838184
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1324927873531944130}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 17f2349e9353d8c45a36078d31a0fed8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BallotCollector
-  ShowTopMostFoldoutHeaderGroup: 1
-  _maxBallots: 10
-  _interactCheckRadius: 3
-  _cliqueLayer:
-    serializedVersion: 2
-    m_Bits: 512
-  _ballotText: {fileID: 3644259865013575980}
 --- !u!114 &5633444664855172892
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -799,6 +781,38 @@ MonoBehaviour:
   cloneGravity: -20
   cloneJumpForce: 8
   cloneAcceleration: 10
+--- !u!114 &2307744900510929241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1324927873531944130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cc91e417ebc62a449e18c7398d84a20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GossipRelay
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &-3801428854023256736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1324927873531944130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17f2349e9353d8c45a36078d31a0fed8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BallotCollector
+  ShowTopMostFoldoutHeaderGroup: 1
+  _maxBallots: 10
+  _interactCheckRadius: 3
+  _cliqueLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  _ballotText: {fileID: 3644259865013575980}
 --- !u!1 &1677112768022907872
 GameObject:
   m_ObjectHideFlags: 0

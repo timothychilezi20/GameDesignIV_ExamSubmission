@@ -34,18 +34,22 @@ public class VoteManager : NetworkBehaviour
     // Added: categorised ServerRpc — takes all three clique counts
     // separately so votes are stored by type, not just as a lump sum.
     // RequireOwnership = false so either client can call it.
-    [ServerRpc]
-    public void AddVotesServerRpc(int artists, int nerds, int athletes)
+
+
+    // Called directly on the server by BallotCollector's ServerRpc
+    // No ownership needed since this runs on the server already
+    public void ReceiveVotes(int artists, int nerds, int athletes)
     {
+        if (!IsServer) return;
+
         _artistVotes.Value += artists;
         _nerdVotes.Value += nerds;
         _athleteVotes.Value += athletes;
         _totalVotes.Value += artists + nerds + athletes;
 
-        Debug.Log($"Votes added — Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
-        Debug.Log($"Total votes — Artists: {_artistVotes.Value} | Nerds: {_nerdVotes.Value} | Athletes: {_athleteVotes.Value} | Total: {_totalVotes.Value}");
+        Debug.Log($"Votes received — Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
+        Debug.Log($"Total — Artists: {_artistVotes.Value} | Nerds: {_nerdVotes.Value} | Athletes: {_athleteVotes.Value} | Total: {_totalVotes.Value}");
     }
-
     public int GetTotalVotes() => _totalVotes.Value;
     public int GetArtistVotes() => _artistVotes.Value;
     public int GetNerdVotes() => _nerdVotes.Value;
