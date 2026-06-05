@@ -2014,7 +2014,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUIManager
   ShowTopMostFoldoutHeaderGroup: 1
-  _player1UI: {fileID: 0}
+  _player1UI: {fileID: 8715187586392757508}
   _player2UI: {fileID: 7366539747518953120}
 --- !u!1 &7366539747518953120
 GameObject:
