@@ -1486,7 +1486,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUIManager
   ShowTopMostFoldoutHeaderGroup: 1
   _player1UI: {fileID: 7922563626229997490}
-  _player2UI: {fileID: 0}
+  _player2UI: {fileID: 7277538703210586787}
 --- !u!1 &6663650513760844677
 GameObject:
   m_ObjectHideFlags: 0
@@ -1933,6 +1933,7 @@ GameObject:
   - component: {fileID: 4197971460258452778}
   - component: {fileID: 3032742900825560736}
   - component: {fileID: -2504171793590170297}
+  - component: {fileID: -6201021684894124258}
   m_Layer: 7
   m_Name: MII Boy
   m_TagString: Untagged
@@ -2181,6 +2182,19 @@ MonoBehaviour:
   cloneGravity: -20
   cloneJumpForce: 8
   cloneAcceleration: 10
+--- !u!114 &-6201021684894124258
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8352858420602196879}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cc91e417ebc62a449e18c7398d84a20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GossipRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &8843318416941022110
 GameObject:
   m_ObjectHideFlags: 0

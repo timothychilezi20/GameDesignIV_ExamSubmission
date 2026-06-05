@@ -98,6 +98,28 @@ public class BallotCollector : NetworkBehaviour
         _isCollecting = true;
     }
 
+
+    // Called locally after clearing ballots — player calls their own
+    // ServerRpc so ownership is never an issue
+    [ServerRpc]
+    private void AddVotesToServerRpc(int artists, int nerds, int athletes)
+    {
+        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes);
+    }
+
+    public void DumpBallotsToServer()
+    {
+        if (!IsOwner) return;
+        if (GetBallotCount() == 0) return;
+
+        int artists = GetArtistBallots();
+        int nerds = GetNerdBallots();
+        int athletes = GetAthleteBallots();
+
+        ClearBallots();
+        AddVotesToServerRpc(artists, nerds, athletes);
+    }
+
     public void OnCollectVotesPerformed()
     {
         if (!IsOwner || !_isCollecting || _currentGroup == null) return;

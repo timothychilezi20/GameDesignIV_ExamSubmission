@@ -82,17 +82,16 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     public override void OnNetworkSpawn()
     {
+        Debug.Log($"OnNetworkSpawn — IsOwner: {IsOwner} | IsHost: {IsHost} | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
+
         if (IsHost)
-        {
             cloneAnimator.runtimeAnimatorController = maleController;
-        }
         else
-        {
             cloneAnimator.runtimeAnimatorController = femaleController;
-        }
 
         if (!IsOwner)
         {
+            Debug.Log($"Not owner — disabling CC | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
             if (cloneController != null)
                 cloneController.enabled = false;
 
@@ -100,22 +99,39 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
             return;
         }
 
-        cloneController.enabled = true;
+        StartCoroutine(OwnerSetupRoutine());
+    }
 
+    private IEnumerator OwnerSetupRoutine()
+    {
+        // One frame wait for ownership to fully propagate
+        yield return null;
+
+        if (!IsOwner)
+        {
+            Debug.LogWarning("OwnerSetupRoutine — IsOwner still false after wait");
+            yield break;
+        }
+
+        Debug.Log("OwnerSetupRoutine — setting up owner");
+
+        cloneController.enabled = true;
+        Debug.Log($"CharacterController enabled: {cloneController.enabled}");
+
+        yield return null;
+        Debug.Log($"CharacterController still enabled after frame: {cloneController.enabled}");
         _ballotCollector = GetComponent<BallotCollector>();
 
         cloneControls = new GameInput();
         cloneControls.Enable();
-
         cloneControls.Voting.Enable();
         cloneControls.Voting.SetCallbacks(this);
-
         cloneControls.PlayerMovement.SetCallbacks(this);
 
         cloneMoveInput = Vector2.zero;
         cloneVerticalVelocity = 0f;
 
-        StartCoroutine(AssignCloneCamera());
+        yield return StartCoroutine(AssignCloneCamera());
     }
 
     private void OnCloneNetworkPositionFirstReceived(Vector3 previous, Vector3 current)
@@ -148,8 +164,10 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
     public override void OnNetworkDespawn()
     {
         if (!IsOwner) return;
+        if (cloneControls == null) return;
 
         cloneControls.PlayerMovement.RemoveCallbacks(this);
+        cloneControls.Voting.RemoveCallbacks(this);
         cloneControls.Disable();
     }
 
@@ -182,6 +200,15 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     private void Update()
     {
+
+        // Temporary — remove after debugging
+        if (IsOwner && cloneController != null && !cloneController.enabled)
+        {
+            Debug.LogWarning("CharacterController was disabled — re-enabling and logging stack trace");
+            Debug.LogWarning(System.Environment.StackTrace);
+            cloneController.enabled = true;
+        }
+
         if (IsOwner)
         {
             HandleCloneMovement();
@@ -377,6 +404,8 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     private void OnTriggerEnter(Collider other)
     {
+
+       // Debug.Log($"OnTriggerEnter — other: {other.gameObject.name} | IsOwner: {IsOwner} | layer: {other.gameObject.layer}");
         SchoolArea area = other.GetComponent<SchoolArea>();
         if (area != null)
         {
