@@ -10,17 +10,16 @@ public class BallotCollector : NetworkBehaviour
     [SerializeField] private LayerMask _cliqueLayer;
 
     [Header("UI")]
-    [SerializeField] private TextMeshPro _ballotText;
+    [SerializeField] private TextMeshProUGUI _ballotText;
 
-    // Total ballot count — still used for the 0/10 display and max cap
+    // Total ballot count
     private NetworkVariable<int> _ballotCount = new NetworkVariable<int>(
         0,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner
     );
 
-    // Added: separate tracked counts per clique type.
-    // These are what get converted to categorised votes on dump.
+    // Separate tracked counts per clique type
     private NetworkVariable<int> _artistBallots = new NetworkVariable<int>(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner
     );
@@ -38,7 +37,11 @@ public class BallotCollector : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _ballotCount.OnValueChanged += OnBallotCountChanged;
-        UpdateBallotText(_ballotCount.Value);
+        UpdateBallotText(_ballotCount.Value); // this only works if _ballotText is already set
+
+        // If text was set before OnNetworkSpawn, refresh it now
+        if (_ballotText != null)
+            UpdateBallotText(_ballotCount.Value);
     }
 
     public override void OnNetworkDespawn()
@@ -65,6 +68,25 @@ public class BallotCollector : NetworkBehaviour
         _currentStation.TryDumpBallots(this);
     }
 
+    [ServerRpc]
+    private void AddVotesToServerRpc(int artists, int nerds, int athletes)
+    {
+        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes);
+    }
+
+    public void DumpBallotsToServer()
+    {
+        if (!IsOwner) return;
+        if (GetBallotCount() == 0) return;
+
+        int artists = GetArtistBallots();
+        int nerds = GetNerdBallots();
+        int athletes = GetAthleteBallots();
+
+        ClearBallots();
+        AddVotesToServerRpc(artists, nerds, athletes);
+    }
+
     public void OnCollectVotesStarted()
     {
         if (!IsOwner || _isCollecting) return;
@@ -74,6 +96,7 @@ public class BallotCollector : NetworkBehaviour
 
         float closest = float.MaxValue;
         CliqueGroup closestGroup = null;
+
         foreach (Collider hit in hits)
         {
             CliqueGroup group = hit.GetComponent<CliqueGroup>();
@@ -98,28 +121,6 @@ public class BallotCollector : NetworkBehaviour
         _isCollecting = true;
     }
 
-
-    // Called locally after clearing ballots — player calls their own
-    // ServerRpc so ownership is never an issue
-    [ServerRpc]
-    private void AddVotesToServerRpc(int artists, int nerds, int athletes)
-    {
-        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes);
-    }
-
-    public void DumpBallotsToServer()
-    {
-        if (!IsOwner) return;
-        if (GetBallotCount() == 0) return;
-
-        int artists = GetArtistBallots();
-        int nerds = GetNerdBallots();
-        int athletes = GetAthleteBallots();
-
-        ClearBallots();
-        AddVotesToServerRpc(artists, nerds, athletes);
-    }
-
     public void OnCollectVotesPerformed()
     {
         if (!IsOwner || !_isCollecting || _currentGroup == null) return;
@@ -127,9 +128,6 @@ public class BallotCollector : NetworkBehaviour
         int ballotsToAdd = _currentGroup.GetMemberCount();
         int newCount = Mathf.Min(_ballotCount.Value + ballotsToAdd, _maxBallots);
 
-        // Added: add to the correct clique category based on group type.
-        // Each clique's ballot count is tracked separately so VoteManager
-        // can store categorised votes when the player dumps at a station.
         switch (_currentGroup.cliqueType)
         {
             case CliqueGroup.CliqueType.Artists:
@@ -145,6 +143,9 @@ public class BallotCollector : NetworkBehaviour
 
         _ballotCount.Value = newCount;
         _currentGroup.MarkCollected();
+
+        // Force update text directly on the owner — don't rely solely on OnValueChanged
+        UpdateBallotText(newCount);
 
         Debug.Log($"Collected {ballotsToAdd} {_currentGroup.cliqueType} ballots | " +
                   $"Artists: {_artistBallots.Value} | Nerds: {_nerdBallots.Value} | Athletes: {_athleteBallots.Value} | " +
@@ -167,20 +168,34 @@ public class BallotCollector : NetworkBehaviour
 
     private void UpdateBallotText(int count)
     {
+        Debug.Log($"[BallotCollector] UpdateBallotText called. Count: {count} | _ballotText is null: {_ballotText == null}");
         if (_ballotText != null)
+        {
             _ballotText.text = $"{count}/{_maxBallots}";
+            Debug.Log($"[BallotCollector] Text set to: {_ballotText.text} | GameObject: {_ballotText.gameObject.name} | Path: {GetFullPath(_ballotText.gameObject)} | Active: {_ballotText.gameObject.activeInHierarchy}");
+        }
     }
 
-    public void SetBallotText(TMPro.TextMeshPro text)
+    public void SetBallotText(TextMeshProUGUI text)
     {
         _ballotText = text;
+        Debug.Log($"[BallotCollector] SetBallotText — object name: {text.gameObject.name} | full path: {GetFullPath(text.gameObject)}");
         UpdateBallotText(_ballotCount.Value);
     }
 
-    public int GetBallotCount() => _ballotCount.Value;
+    private string GetFullPath(GameObject obj)
+    {
+        string path = obj.name;
+        Transform parent = obj.transform.parent;
+        while (parent != null)
+        {
+            path = parent.name + "/" + path;
+            parent = parent.parent;
+        }
+        return path;
+    }
 
-    // Added: getters for each clique category so VotingStation
-    // can pass categorised totals to VoteManager on dump
+    public int GetBallotCount() => _ballotCount.Value;
     public int GetArtistBallots() => _artistBallots.Value;
     public int GetNerdBallots() => _nerdBallots.Value;
     public int GetAthleteBallots() => _athleteBallots.Value;

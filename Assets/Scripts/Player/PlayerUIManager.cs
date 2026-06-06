@@ -1,14 +1,21 @@
 ﻿using UnityEngine;
 using Unity.Netcode;
+using TMPro;
+using UnityEngine.UI; 
 
 public class PlayerUIManager : NetworkBehaviour
 {
     [Header("Player UI Roots")]
-    [SerializeField] private GameObject _player1UI; // drag P1 UI parent here
-    [SerializeField] private GameObject _player2UI; // drag P2 UI parent here
+    [SerializeField] private GameObject _player1UI;
+    [SerializeField] private GameObject _player2UI;
 
-    // Added: NetworkVariable so all clients know which player
-    // number this object represents — 1 for host, 2 for client
+    [Header("Ballot UI")]
+    [SerializeField] private Canvas _ballotCanvas;
+    [SerializeField] private TextMeshProUGUI _player1BallotText;
+    [SerializeField] private TextMeshProUGUI _player2BallotText;
+    [SerializeField] private Image _player1BallotBackground;
+    [SerializeField] private Image _player2BallotBackground;
+
     private NetworkVariable<int> _playerNumber = new NetworkVariable<int>(
         0,
         NetworkVariableReadPermission.Everyone,
@@ -17,18 +24,10 @@ public class PlayerUIManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        // Server assigns player numbers based on client ID
-        // Host is always client 0 → Player 1
-        // Second player is client 1 → Player 2
         if (IsServer)
-        {
             _playerNumber.Value = OwnerClientId == 0 ? 1 : 2;
-        }
 
-        // Subscribe so UI updates if player number changes
         _playerNumber.OnValueChanged += OnPlayerNumberAssigned;
-
-        // Apply immediately in case value is already set
         ApplyUI(_playerNumber.Value);
     }
 
@@ -44,25 +43,34 @@ public class PlayerUIManager : NetworkBehaviour
 
     private void ApplyUI(int playerNumber)
     {
-        if (playerNumber == 0) return; // not assigned yet
+        if (playerNumber == 0) return;
 
-        // Only activate UI for the local owner
-        // Non-owners see neither — they have their own player object
         if (!IsOwner)
         {
             _player1UI.SetActive(false);
             _player2UI.SetActive(false);
+            // Hide the entire ballot canvas for non-owners
+            if (_ballotCanvas != null)
+                _ballotCanvas.gameObject.SetActive(false);
             return;
         }
 
         _player1UI.SetActive(playerNumber == 1);
         _player2UI.SetActive(playerNumber == 2);
 
+        if (_ballotCanvas != null)
+            _ballotCanvas.gameObject.SetActive(true);
+
+        if (_player1BallotBackground != null)
+            _player1BallotBackground.gameObject.SetActive(playerNumber == 1);
+
+        if (_player2BallotBackground != null)
+            _player2BallotBackground.gameObject.SetActive(playerNumber == 2);
+
         BallotCollector ballotCollector = GetComponent<BallotCollector>();
         if (ballotCollector != null)
         {
-            GameObject activeUI = playerNumber == 1 ? _player1UI : _player2UI;
-            TMPro.TextMeshPro ballotText = activeUI.GetComponentInChildren<TMPro.TextMeshPro>();
+            TextMeshProUGUI ballotText = playerNumber == 1 ? _player1BallotText : _player2BallotText;
             if (ballotText != null)
                 ballotCollector.SetBallotText(ballotText);
         }
