@@ -66,6 +66,14 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
         NetworkVariableWritePermission.Server
     );
 
+    private NetworkVariable<bool> _clonePickUpTrigger = new NetworkVariable<bool>(
+    false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+);
+    private NetworkVariable<bool> _cloneDropOffTrigger = new NetworkVariable<bool>(
+        false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+    );
+
+
     // ─────────────────────────────────────────
 
     private bool cloneHasReceivedFirstPosition = false;
@@ -448,13 +456,68 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.started)
         {
-            _ballotCollector.TryDumpBallots();
-            _ballotCollector.OnCollectVotesStarted();
-        }
+            int ballotCount = _ballotCollector.GetBallotCount();
+            Debug.Log($"[OnCollectVotes] started — ballot count: {ballotCount}");
 
+            _ballotCollector.OnCollectVotesStarted();
+
+            if (ballotCount > 0)
+            {
+                _ballotCollector.TryDumpBallots();
+                cloneAnimator.SetTrigger("DropOffTrigger");
+                TriggerDropOffServerRpc();
+                Debug.Log("[OnCollectVotes] DropOff trigger set");
+            }
+        }
         else if (context.performed)
+        {
             _ballotCollector.OnCollectVotesPerformed();
+            cloneAnimator.SetTrigger("PickUpTrigger");
+            TriggerPickUpServerRpc();
+        }
         else if (context.canceled)
+        {
             _ballotCollector.OnCollectVotesCancelled();
+        }
+    }
+
+    public void OnDumpVotes(InputAction.CallbackContext context)
+    {
+        if (!IsOwner || _ballotCollector == null) return;
+
+        if (context.performed)
+        {
+            _ballotCollector.TryDumpBallots();
+
+            // Play dropoff animation locally and sync to others
+            cloneAnimator.SetTrigger("DropOffTrigger");
+            TriggerDropOffServerRpc();
+        }
+    }
+
+    [ServerRpc]
+    private void TriggerPickUpServerRpc()
+    {
+        TriggerPickUpClientRpc();
+    }
+
+    [ServerRpc]
+    private void TriggerDropOffServerRpc()
+    {
+        TriggerDropOffClientRpc();
+    }
+
+    [ClientRpc]
+    private void TriggerPickUpClientRpc()
+    {
+        if (IsOwner) return; // owner already played it locally
+        cloneAnimator.SetTrigger("PickUpTrigger");
+    }
+
+    [ClientRpc]
+    private void TriggerDropOffClientRpc()
+    {
+        if (IsOwner) return;
+        cloneAnimator.SetTrigger("DropOffTrigger");
     }
 }
