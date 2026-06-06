@@ -18,6 +18,12 @@ public class RumorManager : NetworkBehaviour
         Instance = this;
     }
 
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    public void ReportSpottingServerRpc(int spottedPlayerNumber, string areaName, bool isInterior)
+    {
+        SendRumorClientRpc(spottedPlayerNumber, areaName, isInterior);
+    }
+
     // Called by GossipRelay on the server — routes to recipient client
     [ClientRpc]
     public void SendRumorClientRpc(int spottedPlayerNumber, string areaName, bool isInterior)
