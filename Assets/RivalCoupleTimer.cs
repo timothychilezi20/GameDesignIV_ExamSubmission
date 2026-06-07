@@ -4,7 +4,7 @@ using UnityEngine.UI;
 public class RivalCoupleTimer : MonoBehaviour
 {
     public Slider rivalProgressBar;
-    public float roundDuration = 5f;  
+    public float roundDuration = 120f;  
     public int totalRounds = 3;        
     private int currentRound = 0;
     private float elapsedTime;
@@ -12,7 +12,7 @@ public class RivalCoupleTimer : MonoBehaviour
     public bool collectionPhaseActive = false;
 
     
-    [SerializeField] private int ballotsPerRound = 40;
+    [SerializeField] private int ballotsPerRound = 50;
     private float ballotsPerSecond;
     private int maxBallots;
 
