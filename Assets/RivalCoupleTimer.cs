@@ -33,6 +33,7 @@ public class RivalCoupleTimer : MonoBehaviour
 
                 collectionPhaseActive = false; 
                 Debug.Log($"Round {currentRound + 1} ended!");
+                currentRound++;
             }
         }
     }
@@ -41,10 +42,10 @@ public class RivalCoupleTimer : MonoBehaviour
     {
         if (currentRound < totalRounds)
         {
-            currentRound++;
             elapsedTime = 0;
             collectionPhaseActive = true;
             Debug.Log($"Round {currentRound} started!");
+            
         }
         else
         {
