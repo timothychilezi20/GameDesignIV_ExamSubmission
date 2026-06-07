@@ -15,8 +15,14 @@ public class PlayerUIManager : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+    [Header("Reveal Phase")]
+    [SerializeField] private GameObject _revealPanel;
+
+    public int _localPlayerNumber = 0;
+
     public override void OnNetworkSpawn()
     {
+        Debug.Log($"PlayerUIManager OnNetworkSpawn — OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId} | IsOwner: {IsOwner} | IsServer: {IsServer}");
         // Server assigns player numbers based on client ID
         // Host is always client 0 → Player 1
         // Second player is client 1 → Player 2
@@ -28,8 +34,15 @@ public class PlayerUIManager : NetworkBehaviour
         // Subscribe so UI updates if player number changes
         _playerNumber.OnValueChanged += OnPlayerNumberAssigned;
 
+        if (_playerNumber.Value != 0)
+            OnPlayerNumberAssigned(0, _playerNumber.Value);
+
+
         // Apply immediately in case value is already set
         ApplyUI(_playerNumber.Value);
+
+        if (_revealPanel != null)
+            _revealPanel.SetActive(false);
     }
 
     public override void OnNetworkDespawn()
@@ -39,21 +52,36 @@ public class PlayerUIManager : NetworkBehaviour
 
     private void OnPlayerNumberAssigned(int previous, int current)
     {
+
+        if (current == 0) return;
+
+
+        if (_playerNumber.Value != 0)
+            OnPlayerNumberAssigned(0, _playerNumber.Value);
+
+
         ApplyUI(current);
+
+
     }
+
 
     private void ApplyUI(int playerNumber)
     {
-        if (playerNumber == 0) return; // not assigned yet
+        if (playerNumber == 0) return;
 
-        // Only activate UI for the local owner
-        // Non-owners see neither — they have their own player object
-        if (!IsOwner)
+        bool isLocalPlayer = OwnerClientId == NetworkManager.Singleton.LocalClientId;
+
+      //  if (isLocalPlayer && _localPlayerNumber == 0)
+        //    _localPlayerNumber = playerNumber;
+
+        if (!isLocalPlayer)
         {
             _player1UI.SetActive(false);
             _player2UI.SetActive(false);
             return;
         }
+
 
         _player1UI.SetActive(playerNumber == 1);
         _player2UI.SetActive(playerNumber == 2);
@@ -69,6 +97,15 @@ public class PlayerUIManager : NetworkBehaviour
 
         Debug.Log($"Local player is Player {playerNumber}");
     }
+    public int GetPlayerNumber() => _localPlayerNumber != 0
+       ? _localPlayerNumber
+       : _playerNumber.Value;
+    public void SetRevealPanel(bool active)
+    {
+        if (!IsOwner) return;
+        if (_revealPanel != null)
+            _revealPanel.SetActive(active);
+    }
 
-    public int GetPlayerNumber() => _playerNumber.Value;
+ 
 }

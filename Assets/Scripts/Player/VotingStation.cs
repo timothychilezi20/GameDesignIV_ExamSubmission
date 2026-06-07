@@ -32,21 +32,5 @@ public class VotingStation : MonoBehaviour
         Debug.Log("Player left voting station");
     }
 
-    // Simplified — no longer tracks _playerInsideStation locally.
-    // BallotCollector holds the station reference itself so authority
-    // checks happen on the NetworkBehaviour that owns the data.
-    public void TryDumpBallots(BallotCollector ballotCollector)
-    {
-        if (ballotCollector == null) return;
-        if (ballotCollector.GetBallotCount() == 0)
-        {
-            Debug.Log("No ballots to dump");
-            return;
-        }
-
-        // Changed: let BallotCollector handle the ServerRpc call
-        // since it owns itself and can always call its own ServerRpcs
-        ballotCollector.DumpBallotsToServer();
-        Debug.Log("Ballots dumped to server");
-    }
+    
 }

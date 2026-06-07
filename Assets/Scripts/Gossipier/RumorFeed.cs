@@ -122,4 +122,21 @@ public class RumorFeed : MonoBehaviour
             Text = text;
         }
     }
+
+    public void AddDirectRumor(string message)
+    {
+        if (_activeEntries.Count >= _maxRumors)
+            RemoveOldest();
+
+        GameObject entryObj = Instantiate(_rumorEntryPrefab, _rumorContainer);
+        entryObj.transform.SetAsFirstSibling();
+
+        TextMeshProUGUI text = entryObj.GetComponent<TextMeshProUGUI>();
+        if (text != null)
+            text.text = message;
+
+        RumorEntry entry = new RumorEntry(entryObj, text);
+        _activeEntries.Add(entry);
+        StartCoroutine(FadeRoutine(entry));
+    }
 }

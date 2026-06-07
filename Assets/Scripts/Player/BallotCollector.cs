@@ -12,6 +12,16 @@ public class BallotCollector : NetworkBehaviour
     [Header("UI")]
     [SerializeField] private TextMeshPro _ballotText;
 
+    private bool _hasLockedIn = false;
+    public bool HasLockedIn => _hasLockedIn;
+
+    public VotingStation CurrentStation => _currentStation;
+
+    public bool IsCurrentlyCollecting => _isCollecting;
+    public string CurrentCollectingClique => _isCollecting && _currentGroup != null
+        ? _currentGroup.cliqueType.ToString()
+        : "";
+
     // Total ballot count — still used for the 0/10 display and max cap
     private NetworkVariable<int> _ballotCount = new NetworkVariable<int>(
         0,
@@ -59,11 +69,7 @@ public class BallotCollector : NetworkBehaviour
         Debug.Log("Ballots cleared");
     }
 
-    public void TryDumpBallots()
-    {
-        if (_currentStation == null) return;
-        _currentStation.TryDumpBallots(this);
-    }
+   
 
     public void OnCollectVotesStarted()
     {
@@ -175,6 +181,44 @@ public class BallotCollector : NetworkBehaviour
     {
         _ballotText = text;
         UpdateBallotText(_ballotCount.Value);
+    }
+
+    public void LockInVotes()
+    {
+        if (!IsOwner || _hasLockedIn) return;
+        if (GetBallotCount() == 0 && GetArtistBallots() == 0 &&
+            GetNerdBallots() == 0 && GetAthleteBallots() == 0)
+        {
+            Debug.Log("No votes to lock in");
+            return;
+        }
+
+        DumpBallotsToServer();
+        _hasLockedIn = true;
+        Debug.Log("Votes locked in");
+
+        // Read player number on the client where it's known
+        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
+        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
+        Debug.Log($"Locking in as Player {playerNumber}| localCached: {uiManager?._localPlayerNumber}");
+        
+
+        // Pass playerNumber directly — don't read it on the server
+        LockInServerRpc(playerNumber);
+    }
+
+
+    [ServerRpc]
+    private void LockInServerRpc(int playerNumber)
+    {
+        Debug.Log($"LockInServerRpc — playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
+        if (playerNumber == 0) return;
+        RoundManager.Instance.LockInVotesServerRpc(playerNumber);
+    }
+    // Reset lock-in state at the start of a new round
+    public void ResetForNewRound()
+    {
+        _hasLockedIn = false;
     }
 
     public int GetBallotCount() => _ballotCount.Value;

@@ -224,28 +224,46 @@ public class Gossipier : MonoBehaviour
         PlayerUIManager playerUI = player.GetComponent<PlayerUIManager>();
         int playerNumber = playerUI != null ? playerUI.GetPlayerNumber() : 0;
 
-        string playerLabel = playerNumber > 0 ? $"Player {playerNumber}" : "A player";
-        Debug.Log($"playerNumber: {playerNumber} | playerUI null: {playerUI == null}");
-        bool isInArea = playerController != null && playerController.CloneIsInArea;
-        string areaName = playerController != null ? playerController.CloneCurrentAreaName : "the hallway";
-        bool isInterior = playerController != null && playerController.CloneCurrentAreaType == SchoolArea.AreaType.Interior;
-
-        Debug.Log($"{playerLabel} seen {(isInArea ? (isInterior ? "inside" : "at") + " " + areaName : "in hallway")}");
-
         if (playerNumber == 0)
-        {
-            Debug.Log("playerNumber is 0 — using map fallback");
             playerNumber = _mapPlayerNumber;
+
+        string playerLabel = $"Player {playerNumber}";
+        string message = "";
+
+        // Priority 1: player is actively collecting from a clique
+        // This is the most specific and interesting state to report
+        if (playerController != null && playerController.IsCollectingFromClique)
+        {
+            message = $"{playerLabel} seen talking to {playerController.CurrentCliqueName}";
+        }
+        // Priority 2: player is at a voting station
+        else if (playerController != null && playerController.IsAtVotingStation)
+        {
+            message = $"{playerLabel} seen at the voting station";
+        }
+        // Priority 3: player is in a named area
+        else if (playerController != null && playerController.CloneIsInArea)
+        {
+            string areaName = playerController.CloneCurrentAreaName;
+            bool isInterior = playerController.CloneCurrentAreaType == SchoolArea.AreaType.Interior;
+            message = isInterior
+                ? $"{playerLabel} seen inside {areaName}"
+                : $"{playerLabel} seen at {areaName}";
+        }
+        // Priority 4: player is in the hallway
+        else
+        {
+            message = $"{playerLabel} spotted in hallway";
         }
 
-        // Find the local owned GossipRelay — only one call, no duplicates
+        Debug.Log(message);
+
+        // Send to rumor feed via GossipRelay
         GossipRelay[] relays = FindObjectsByType<GossipRelay>(FindObjectsSortMode.None);
-        Debug.Log($"GossipRelays found in scene: {relays.Length}");
         foreach (GossipRelay relay in relays)
         {
             if (!relay.IsOwner) continue;
-            relay.SendSpottingReport(playerNumber, areaName, isInterior);
-            Debug.Log($"Relay on: {relay.gameObject.name} | IsOwner: {relay.IsOwner} | IsSpawned: {relay.IsSpawned}");
+            relay.SendDirectReport(message, playerNumber);
             break;
         }
     }
