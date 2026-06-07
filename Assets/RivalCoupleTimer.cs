@@ -11,10 +11,18 @@ public class RivalCoupleTimer : MonoBehaviour
 
     public bool collectionPhaseActive = false;
 
+    
+    [SerializeField] private int ballotsPerRound = 40;
+    private float ballotsPerSecond;
+    private int maxBallots;
+
     void Start()
     {
+        maxBallots = ballotsPerRound * totalRounds; 
+        ballotsPerSecond = ballotsPerRound / roundDuration; 
+
         rivalProgressBar.minValue = 0;
-        rivalProgressBar.maxValue = roundDuration * totalRounds; 
+        rivalProgressBar.maxValue = maxBallots; 
         rivalProgressBar.value = 0;
     }
 
@@ -23,16 +31,20 @@ public class RivalCoupleTimer : MonoBehaviour
         if (collectionPhaseActive && currentRound < totalRounds)
         {
             elapsedTime += Time.deltaTime;
-            rivalProgressBar.value = (currentRound * roundDuration) + elapsedTime;
+            float roundBallots = Mathf.Min(elapsedTime * ballotsPerSecond, ballotsPerRound);
+
+            
+            rivalProgressBar.value = (currentRound * ballotsPerRound) + roundBallots;
 
             if (elapsedTime >= roundDuration)
             {
-                // End of round reached
+                
                 elapsedTime = roundDuration;
-                rivalProgressBar.value = (currentRound * roundDuration) + roundDuration;
+                rivalProgressBar.value = (currentRound * ballotsPerRound) + ballotsPerRound;
 
                 collectionPhaseActive = false; 
-                Debug.Log($"Round {currentRound + 1} ended!");
+                Debug.Log($"Round {currentRound + 1} ended at {rivalProgressBar.value} ballots!");
+
                 currentRound++;
             }
         }
@@ -44,12 +56,18 @@ public class RivalCoupleTimer : MonoBehaviour
         {
             elapsedTime = 0;
             collectionPhaseActive = true;
-            Debug.Log($"Round {currentRound} started!");
-            
+            Debug.Log($"Round {currentRound + 1} started!");
         }
         else
         {
-            Debug.Log("All rounds finished — Rival Couple timer complete!");
+            Debug.Log("All rounds finished — Rival Couple bar complete!");
         }
+    }
+
+    
+    public void RevealPhase()
+    {
+        int ballots = Mathf.RoundToInt(rivalProgressBar.value);
+        Debug.Log($"Reveal Phase: Rival Couple currently has {ballots} ballots!");
     }
 }
