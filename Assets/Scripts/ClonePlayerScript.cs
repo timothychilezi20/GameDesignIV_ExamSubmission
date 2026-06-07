@@ -417,7 +417,7 @@ public class ClonePlayerScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.started)
         {
-            _ballotCollector.TryDumpBallots();
+           // _ballotCollector.TryDumpBallots();
             _ballotCollector.OnCollectVotesStarted();
         }
 

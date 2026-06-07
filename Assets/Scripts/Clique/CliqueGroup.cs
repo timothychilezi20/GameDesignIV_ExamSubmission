@@ -12,13 +12,24 @@ public class CliqueGroup : MonoBehaviour
     [SerializeField] private float _interactDistance = 2f;
 
     private Transform[] _members;
+
+    [Header("Classroom")]
+    [SerializeField] private bool _isInClassroom = false;
     public bool HasBeenCollected { get; private set; } = false;
     private Transform _nearbyPlayer = null;
     public float InteractDistance => _interactDistance;
 
+    private bool _classInSession = false;
+    private Transform _teacherTransform = null;
+
     private void Start()
     {
-        System.Collections.Generic.List<Transform> members = new System.Collections.Generic.List<Transform>();
+
+
+
+
+
+        _members = new Transform[transform.childCount];
         for (int i = 0; i < transform.childCount; i++)
             members.Add(transform.GetChild(i));
 
@@ -27,6 +38,13 @@ public class CliqueGroup : MonoBehaviour
 
     private void Update()
     {
+
+        if (_classInSession && _teacherTransform != null)
+        {
+            FaceTarget(_teacherTransform.position);
+            return;
+        }
+
         if (_nearbyPlayer == null)
         {
             ProximityPromptUI.Instance?.HidePrompt(this);
@@ -56,8 +74,36 @@ public class CliqueGroup : MonoBehaviour
         }
     }
 
+
+    private void FaceTarget(Vector3 targetPosition)
+    {
+        foreach (Transform member in _members)
+        {
+            Vector3 direction = (targetPosition - member.position);
+            direction.y = 0f;
+            if (direction != Vector3.zero)
+                member.rotation = Quaternion.Slerp(
+                    member.rotation,
+                    Quaternion.LookRotation(direction),
+                    Time.deltaTime * 5f
+                );
+        }
+    }
     public void SetNearbyPlayer(Transform player) => _nearbyPlayer = player;
     public void ClearNearbyPlayer() => _nearbyPlayer = null;
+
+    public void StartClassSession(Transform teacher)
+    {
+        if (!_isInClassroom) return;
+        _classInSession = true;
+        _teacherTransform = teacher;
+    }
+
+    public void EndClassSession()
+    {
+        _classInSession = false;
+        _teacherTransform = null;
+    }
 
     public bool IsPlayerInInteractRange(Vector3 playerPosition)
     {
