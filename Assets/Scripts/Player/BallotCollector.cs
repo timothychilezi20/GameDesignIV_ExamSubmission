@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 using TMPro;
+using System.Collections;
 
 public class BallotCollector : NetworkBehaviour
 {
@@ -16,20 +17,17 @@ public class BallotCollector : NetworkBehaviour
     public bool HasLockedIn => _hasLockedIn;
 
     public VotingStation CurrentStation => _currentStation;
-
     public bool IsCurrentlyCollecting => _isCollecting;
     public string CurrentCollectingClique => _isCollecting && _currentGroup != null
         ? _currentGroup.cliqueType.ToString()
         : "";
 
-    // Total ballot count � still used for the 0/10 display and max cap
     private NetworkVariable<int> _ballotCount = new NetworkVariable<int>(
         0,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner
     );
 
-    // Separate tracked counts per clique type
     private NetworkVariable<int> _artistBallots = new NetworkVariable<int>(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner
     );
@@ -47,11 +45,25 @@ public class BallotCollector : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _ballotCount.OnValueChanged += OnBallotCountChanged;
-        UpdateBallotText(_ballotCount.Value); // this only works if _ballotText is already set
 
-        // If text was set before OnNetworkSpawn, refresh it now
         if (_ballotText != null)
             UpdateBallotText(_ballotCount.Value);
+
+        // If text isn't set yet, retry after a frame
+        if (_ballotText == null && IsOwner)
+            StartCoroutine(RetrySetBallotText());
+    }
+
+    private IEnumerator RetrySetBallotText()
+    {
+        yield return null;
+
+        if (_ballotText == null)
+        {
+            PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
+            if (uiManager != null)
+                uiManager.ForceApplyUI();
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -71,8 +83,6 @@ public class BallotCollector : NetworkBehaviour
         _athleteBallots.Value = 0;
         Debug.Log("Ballots cleared");
     }
-
-   
 
     [ServerRpc]
     private void AddVotesToServerRpc(int artists, int nerds, int athletes)
@@ -150,7 +160,6 @@ public class BallotCollector : NetworkBehaviour
         _ballotCount.Value = newCount;
         _currentGroup.MarkCollected();
 
-        // Force update text directly on the owner � don't rely solely on OnValueChanged
         UpdateBallotText(newCount);
 
         Debug.Log($"Collected {ballotsToAdd} {_currentGroup.cliqueType} ballots | " +
@@ -174,11 +183,8 @@ public class BallotCollector : NetworkBehaviour
 
     private void UpdateBallotText(int count)
     {
-        Debug.Log($"[BallotCollector] UpdateBallotText called. Count: {count} | _ballotText is null: {_ballotText == null}");
         if (_ballotText != null)
-        {
             _ballotText.text = $"{count}/{_maxBallots}";
-        }
     }
 
     public void SetBallotText(TextMeshProUGUI text)
@@ -201,25 +207,21 @@ public class BallotCollector : NetworkBehaviour
         _hasLockedIn = true;
         Debug.Log("Votes locked in");
 
-        // Read player number on the client where it's known
         PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
         int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
-        Debug.Log($"Locking in as Player {playerNumber}| localCached: {uiManager?._localPlayerNumber}");
-        
+        Debug.Log($"Locking in as Player {playerNumber}");
 
-        // Pass playerNumber directly � don't read it on the server
         LockInServerRpc(playerNumber);
     }
-
 
     [ServerRpc]
     private void LockInServerRpc(int playerNumber)
     {
-        Debug.Log($"LockInServerRpc � playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
+        Debug.Log($"LockInServerRpc — playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
         if (playerNumber == 0) return;
         RoundManager.Instance.LockInVotesServerRpc(playerNumber);
     }
-    // Reset lock-in state at the start of a new round
+
     public void ResetForNewRound()
     {
         _hasLockedIn = false;

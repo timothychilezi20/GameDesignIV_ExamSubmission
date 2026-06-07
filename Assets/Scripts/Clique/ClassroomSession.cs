@@ -24,6 +24,9 @@ public class ClassroomSession : MonoBehaviour
     // Assign only the CliqueGroup objects that belong to this classroom
     [SerializeField] private CliqueGroup[] _cliqueGroupsInClass;
 
+    [Header("Door Animators")]
+    [SerializeField] private Animator[] _doorAnimators;
+
     private GameObject _currentTeacher = null;
     private bool _sessionActive = false;
 
@@ -107,10 +110,10 @@ public class ClassroomSession : MonoBehaviour
 
     private void SetDoors(bool closed)
     {
-        foreach (GameObject door in _doorObjects)
+        foreach (Animator doorAnimator in _doorAnimators)
         {
-            if (door != null)
-                door.SetActive(closed);
+            if (doorAnimator != null)
+                doorAnimator.SetBool("isLocked", closed);
         }
     }
 

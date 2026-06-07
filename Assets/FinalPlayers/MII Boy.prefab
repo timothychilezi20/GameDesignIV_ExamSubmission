@@ -1078,6 +1078,7 @@ MonoBehaviour:
   _player2BallotText: {fileID: 3049771858787570434}
   _player1BallotBackground: {fileID: 8177301083604432529}
   _player2BallotBackground: {fileID: 4885561449820551954}
+  _revealPanel: {fileID: 0}
 --- !u!1 &3108464547338476739
 GameObject:
   m_ObjectHideFlags: 0
@@ -2076,7 +2077,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1783040293
+  GlobalObjectIdHash: 1892717290
   InScenePlacedSourceGlobalObjectIdHash: 1768924155
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2264,6 +2265,7 @@ MonoBehaviour:
   cloneGravity: -20
   cloneJumpForce: 8
   cloneAcceleration: 10
+  _cliqueInteractionVisibleDuration: 4
 --- !u!114 &5687211516259187790
 MonoBehaviour:
   m_ObjectHideFlags: 0
