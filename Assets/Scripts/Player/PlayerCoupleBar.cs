@@ -5,37 +5,44 @@ using System.Collections.Generic;
 
 public class PlayerCoupleBar : MonoBehaviour
 {
-    public Slider playerProgressBar;
-    [SerializeField] private int maxBallots = 20; // total combined max (10 each for now gang)
+    [SerializeField] private Slider playerProgressBar;
+    [SerializeField] private int maxBallots = 20;
 
-    private List<BallotCollector> playerCollectors = new List<BallotCollector>();
+    private List<BallotCollector> _collectors = new List<BallotCollector>();
+    private bool _foundCollectors = false;
 
-    void Start()
+    private void Start()
     {
         playerProgressBar.minValue = 0;
         playerProgressBar.maxValue = maxBallots;
         playerProgressBar.value = 0;
-
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            var playerObj = client.PlayerObject;
-            if (playerObj != null)
-            {
-                BallotCollector collector = playerObj.GetComponent<BallotCollector>();
-                if (collector != null)
-                {
-                    playerCollectors.Add(collector);
-                }
-            }
-        }
     }
 
-    void Update()
+    private void Update()
     {
-        int totalBallots = 0;
-        foreach (var collector in playerCollectors)
+        // Keep trying until we find collectors
+        if (!_foundCollectors)
         {
-            totalBallots += collector.GetBallotCount();
+            _collectors.Clear();
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                var playerObj = client.PlayerObject;
+                if (playerObj == null) continue;
+
+                BallotCollector collector = playerObj.GetComponent<BallotCollector>();
+                if (collector != null)
+                    _collectors.Add(collector);
+            }
+
+            if (_collectors.Count > 0)
+                _foundCollectors = true;
+        }
+
+        int totalBallots = 0;
+        foreach (var collector in _collectors)
+        {
+            if (collector != null)
+                totalBallots += collector.GetBallotCount();
         }
 
         playerProgressBar.value = totalBallots;

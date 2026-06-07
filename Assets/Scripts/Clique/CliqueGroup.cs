@@ -2,8 +2,6 @@ using UnityEngine;
 
 public class CliqueGroup : MonoBehaviour
 {
-    // Added: enum so each group knows which clique it belongs to.
-    // Set this in the Inspector on each Group object.
     public enum CliqueType { Artists, Nerds, Athletes }
 
     [Header("Clique")]
@@ -20,16 +18,27 @@ public class CliqueGroup : MonoBehaviour
 
     private void Start()
     {
-        _members = new Transform[transform.childCount];
+        System.Collections.Generic.List<Transform> members = new System.Collections.Generic.List<Transform>();
         for (int i = 0; i < transform.childCount; i++)
-            _members[i] = transform.GetChild(i);
+            members.Add(transform.GetChild(i));
+
+        _members = members.ToArray();
     }
 
     private void Update()
     {
-        if (_nearbyPlayer == null) return;
+        if (_nearbyPlayer == null)
+        {
+            ProximityPromptUI.Instance?.HidePrompt(this);
+            return;
+        }
 
         float distance = Vector3.Distance(transform.position, _nearbyPlayer.position);
+
+        if (distance <= _interactDistance && !HasBeenCollected)
+            ProximityPromptUI.Instance?.ShowPrompt("Press E to collect votes", this);
+        else
+            ProximityPromptUI.Instance?.HidePrompt(this);
 
         if (distance <= _facePlayerDistance)
         {
