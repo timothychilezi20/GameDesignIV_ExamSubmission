@@ -12,7 +12,17 @@ public class BallotCollector : NetworkBehaviour
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI _ballotText;
 
-    // Total ballot count
+    private bool _hasLockedIn = false;
+    public bool HasLockedIn => _hasLockedIn;
+
+    public VotingStation CurrentStation => _currentStation;
+
+    public bool IsCurrentlyCollecting => _isCollecting;
+    public string CurrentCollectingClique => _isCollecting && _currentGroup != null
+        ? _currentGroup.cliqueType.ToString()
+        : "";
+
+    // Total ballot count ï¿½ still used for the 0/10 display and max cap
     private NetworkVariable<int> _ballotCount = new NetworkVariable<int>(
         0,
         NetworkVariableReadPermission.Everyone,
@@ -62,11 +72,7 @@ public class BallotCollector : NetworkBehaviour
         Debug.Log("Ballots cleared");
     }
 
-    public void TryDumpBallots()
-    {
-        if (_currentStation == null) return;
-        _currentStation.TryDumpBallots(this);
-    }
+   
 
     [ServerRpc]
     private void AddVotesToServerRpc(int artists, int nerds, int athletes)
@@ -144,7 +150,7 @@ public class BallotCollector : NetworkBehaviour
         _ballotCount.Value = newCount;
         _currentGroup.MarkCollected();
 
-        // Force update text directly on the owner — don't rely solely on OnValueChanged
+        // Force update text directly on the owner ï¿½ don't rely solely on OnValueChanged
         UpdateBallotText(newCount);
 
         Debug.Log($"Collected {ballotsToAdd} {_currentGroup.cliqueType} ballots | " +
@@ -172,27 +178,51 @@ public class BallotCollector : NetworkBehaviour
         if (_ballotText != null)
         {
             _ballotText.text = $"{count}/{_maxBallots}";
-            Debug.Log($"[BallotCollector] Text set to: {_ballotText.text} | GameObject: {_ballotText.gameObject.name} | Path: {GetFullPath(_ballotText.gameObject)} | Active: {_ballotText.gameObject.activeInHierarchy}");
         }
     }
 
     public void SetBallotText(TextMeshProUGUI text)
     {
         _ballotText = text;
-        Debug.Log($"[BallotCollector] SetBallotText — object name: {text.gameObject.name} | full path: {GetFullPath(text.gameObject)}");
         UpdateBallotText(_ballotCount.Value);
     }
 
-    private string GetFullPath(GameObject obj)
+    public void LockInVotes()
     {
-        string path = obj.name;
-        Transform parent = obj.transform.parent;
-        while (parent != null)
+        if (!IsOwner || _hasLockedIn) return;
+        if (GetBallotCount() == 0 && GetArtistBallots() == 0 &&
+            GetNerdBallots() == 0 && GetAthleteBallots() == 0)
         {
-            path = parent.name + "/" + path;
-            parent = parent.parent;
+            Debug.Log("No votes to lock in");
+            return;
         }
-        return path;
+
+        DumpBallotsToServer();
+        _hasLockedIn = true;
+        Debug.Log("Votes locked in");
+
+        // Read player number on the client where it's known
+        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
+        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
+        Debug.Log($"Locking in as Player {playerNumber}| localCached: {uiManager?._localPlayerNumber}");
+        
+
+        // Pass playerNumber directly ï¿½ don't read it on the server
+        LockInServerRpc(playerNumber);
+    }
+
+
+    [ServerRpc]
+    private void LockInServerRpc(int playerNumber)
+    {
+        Debug.Log($"LockInServerRpc ï¿½ playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
+        if (playerNumber == 0) return;
+        RoundManager.Instance.LockInVotesServerRpc(playerNumber);
+    }
+    // Reset lock-in state at the start of a new round
+    public void ResetForNewRound()
+    {
+        _hasLockedIn = false;
     }
 
     public int GetBallotCount() => _ballotCount.Value;

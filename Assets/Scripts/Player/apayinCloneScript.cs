@@ -34,6 +34,13 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     private BallotCollector _ballotCollector;
 
+    [SerializeField] private float _cliqueInteractionVisibleDuration = 4f;
+    private float _cliqueInteractionTimer = 0f;
+
+    public bool IsCollectingFromClique { get; private set; } = false;
+    public string CurrentCliqueName { get; private set; } = "";
+    public bool IsAtVotingStation { get; private set; } = false;
+
     // ─────────────────────────────────────────
     // NETWORK TRANSFORM VARIABLES
     // ─────────────────────────────────────────
@@ -123,11 +130,14 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         Debug.Log("OwnerSetupRoutine — setting up owner");
 
-        cloneController.enabled = true;
-        Debug.Log($"CharacterController enabled: {cloneController.enabled}");
+        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
+        Debug.Log($"PlayerUIManager found: {uiManager != null}");
 
-        yield return null;
-        Debug.Log($"CharacterController still enabled after frame: {cloneController.enabled}");
+        cloneController.enabled = true;
+       // Debug.Log($"CharacterController enabled: {cloneController.enabled}");
+
+       yield return null;
+       // Debug.Log($"CharacterController still enabled after frame: {cloneController.enabled}");
         _ballotCollector = GetComponent<BallotCollector>();
 
         cloneControls = new GameInput();
@@ -220,6 +230,33 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
         if (IsOwner)
         {
             HandleCloneMovement();
+
+            if (_ballotCollector != null)
+            {
+                bool currentlyCollecting = _ballotCollector.IsCurrentlyCollecting;
+                string currentClique = _ballotCollector.CurrentCollectingClique;
+
+                // If actively collecting, reset the timer and store the clique name
+                if (currentlyCollecting)
+                {
+                    _cliqueInteractionTimer = _cliqueInteractionVisibleDuration;
+                    CurrentCliqueName = currentClique;
+                    IsCollectingFromClique = true;
+                }
+                else if (_cliqueInteractionTimer > 0f)
+                {
+                    // Keep IsCollectingFromClique true for the duration
+                    // even after the hold completes so gossipiers can catch it
+                    _cliqueInteractionTimer -= Time.deltaTime;
+                    IsCollectingFromClique = true;
+                    // CurrentCliqueName stays as whatever was last set
+                }
+                else
+                {
+                    IsCollectingFromClique = false;
+                    CurrentCliqueName = "";
+                }
+            }
         }
         else
         {
@@ -428,7 +465,12 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         VotingStation station = other.GetComponent<VotingStation>();
         if (station != null)
+        {
             _ballotCollector.SetCurrentStation(station);
+            IsAtVotingStation = true;
+        }
+           
+        
 
     }
 
@@ -447,23 +489,36 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         VotingStation station = other.GetComponent<VotingStation>();
         if (station != null)
+        {
             _ballotCollector.ClearCurrentStation();
+            IsAtVotingStation = false;
+        }
+          
     }
 
     public void OnCollectVotes(InputAction.CallbackContext context)
     {
         if (!IsOwner || _ballotCollector == null) return;
 
+        if (_ballotCollector.CurrentStation != null)
+        {
+            if (context.performed)
+            {
+                // Hold completed at voting station — lock in votes
+                _ballotCollector.LockInVotes();
+            }
+            return;
+        }
+
         if (context.started)
         {
             int ballotCount = _ballotCollector.GetBallotCount();
             Debug.Log($"[OnCollectVotes] started — ballot count: {ballotCount}");
-
             _ballotCollector.OnCollectVotesStarted();
 
             if (ballotCount > 0)
             {
-                _ballotCollector.TryDumpBallots();
+                // _ballotCollector.TryDumpBallots();
                 cloneAnimator.SetTrigger("DropOffTrigger");
                 TriggerDropOffServerRpc();
                 Debug.Log("[OnCollectVotes] DropOff trigger set");
@@ -487,7 +542,7 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.performed)
         {
-            _ballotCollector.TryDumpBallots();
+            // _ballotCollector.TryDumpBallots();
 
             // Play dropoff animation locally and sync to others
             cloneAnimator.SetTrigger("DropOffTrigger");

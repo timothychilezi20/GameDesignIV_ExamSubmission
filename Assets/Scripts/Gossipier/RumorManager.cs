@@ -45,4 +45,23 @@ public class RumorManager : NetworkBehaviour
             feed.AddRumor($"Player {spottedPlayerNumber}", areaName, isInterior);
         }
     }
+
+    [ClientRpc]
+    public void SendDirectRumorClientRpc(string message, int spottedPlayerNumber)
+    {
+        // Rumor goes to the OTHER player — not the one spotted
+        int recipientPlayerNumber = spottedPlayerNumber == 1 ? 2 : 1;
+
+        PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
+        foreach (PlayerUIManager uiManager in allPlayers)
+        {
+            if (!uiManager.IsOwner) continue;
+            if (uiManager.GetPlayerNumber() != recipientPlayerNumber) continue;
+
+            RumorFeed feed = uiManager.GetComponentInChildren<RumorFeed>(true);
+            if (feed == null) continue;
+
+            feed.AddDirectRumor(message);
+        }
+    }
 }
