@@ -512,12 +512,13 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.started)
         {
-            _ballotCollector.TryDumpBallots();
+            int ballotCount = _ballotCollector.GetBallotCount();
+            Debug.Log($"[OnCollectVotes] started — ballot count: {ballotCount}");
             _ballotCollector.OnCollectVotesStarted();
 
             if (ballotCount > 0)
             {
-                _ballotCollector.TryDumpBallots();
+                // _ballotCollector.TryDumpBallots();
                 cloneAnimator.SetTrigger("DropOffTrigger");
                 TriggerDropOffServerRpc();
                 Debug.Log("[OnCollectVotes] DropOff trigger set");
@@ -541,7 +542,7 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.performed)
         {
-            _ballotCollector.TryDumpBallots();
+            // _ballotCollector.TryDumpBallots();
 
             // Play dropoff animation locally and sync to others
             cloneAnimator.SetTrigger("DropOffTrigger");

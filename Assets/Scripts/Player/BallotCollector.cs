@@ -178,14 +178,12 @@ public class BallotCollector : NetworkBehaviour
         if (_ballotText != null)
         {
             _ballotText.text = $"{count}/{_maxBallots}";
-            Debug.Log($"[BallotCollector] Text set to: {_ballotText.text} | GameObject: {_ballotText.gameObject.name} | Path: {GetFullPath(_ballotText.gameObject)} | Active: {_ballotText.gameObject.activeInHierarchy}");
         }
     }
 
     public void SetBallotText(TextMeshProUGUI text)
     {
         _ballotText = text;
-        Debug.Log($"[BallotCollector] SetBallotText � object name: {text.gameObject.name} | full path: {GetFullPath(text.gameObject)}");
         UpdateBallotText(_ballotCount.Value);
     }
 

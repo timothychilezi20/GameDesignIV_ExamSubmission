@@ -24,11 +24,7 @@ public class CliqueGroup : MonoBehaviour
 
     private void Start()
     {
-
-
-
-
-
+        System.Collections.Generic.List<Transform> members = new System.Collections.Generic.List<Transform>();
         _members = new Transform[transform.childCount];
         for (int i = 0; i < transform.childCount; i++)
             members.Add(transform.GetChild(i));
