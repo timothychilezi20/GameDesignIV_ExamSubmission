@@ -21,6 +21,13 @@ public class VoteManager : NetworkBehaviour
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
     );
 
+    private NetworkVariable<int> _player1Votes = new NetworkVariable<int>(
+    0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+);
+    private NetworkVariable<int> _player2Votes = new NetworkVariable<int>(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -38,20 +45,32 @@ public class VoteManager : NetworkBehaviour
 
     // Called directly on the server by BallotCollector's ServerRpc
     // No ownership needed since this runs on the server already
-    public void ReceiveVotes(int artists, int nerds, int athletes)
+    public void ReceiveVotes(int artists, int nerds, int athletes, int playerNumber)
     {
         if (!IsServer) return;
+
+        Debug.Log($"[VoteManager] ReceiveVotes — Player: {playerNumber} | Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
+        Debug.Log($"[VoteManager] P1 total: {_player1Votes.Value} | P2 total: {_player2Votes.Value}");
+
+        int total = artists + nerds + athletes;
 
         _artistVotes.Value += artists;
         _nerdVotes.Value += nerds;
         _athleteVotes.Value += athletes;
-        _totalVotes.Value += artists + nerds + athletes;
+        _totalVotes.Value += total;
 
-        Debug.Log($"Votes received — Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
-        Debug.Log($"Total — Artists: {_artistVotes.Value} | Nerds: {_nerdVotes.Value} | Athletes: {_athleteVotes.Value} | Total: {_totalVotes.Value}");
+        if (playerNumber == 1)
+            _player1Votes.Value += total;
+        else if (playerNumber == 2)
+            _player2Votes.Value += total;
+
+        Debug.Log($"Votes received — Artists: {artists} | Nerds: {nerds} | Athletes: {athletes} | Player: {playerNumber}");
+        Debug.Log($"Total — P1: {_player1Votes.Value} | P2: {_player2Votes.Value} | Total: {_totalVotes.Value}");
     }
     public int GetTotalVotes() => _totalVotes.Value;
     public int GetArtistVotes() => _artistVotes.Value;
     public int GetNerdVotes() => _nerdVotes.Value;
     public int GetAthleteVotes() => _athleteVotes.Value;
+    public int GetPlayer1Votes() => _player1Votes.Value;
+    public int GetPlayer2Votes() => _player2Votes.Value;
 }

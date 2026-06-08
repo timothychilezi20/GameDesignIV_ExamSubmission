@@ -85,9 +85,9 @@ public class BallotCollector : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void AddVotesToServerRpc(int artists, int nerds, int athletes)
+    private void AddVotesToServerRpc(int artists, int nerds, int athletes, int playerNumber)
     {
-        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes);
+        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes, playerNumber);
     }
 
     public void DumpBallotsToServer()
@@ -99,8 +99,13 @@ public class BallotCollector : NetworkBehaviour
         int nerds = GetNerdBallots();
         int athletes = GetAthleteBallots();
 
+        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
+        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
+
+        Debug.Log($"[DumpBallotsToServer] Player: {playerNumber} | Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
+
         ClearBallots();
-        AddVotesToServerRpc(artists, nerds, athletes);
+        AddVotesToServerRpc(artists, nerds, athletes, playerNumber);
     }
 
     public void OnCollectVotesStarted()
@@ -139,6 +144,8 @@ public class BallotCollector : NetworkBehaviour
 
     public void OnCollectVotesPerformed()
     {
+        TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.LockIn);
+
         if (!IsOwner || !_isCollecting || _currentGroup == null) return;
 
         int ballotsToAdd = _currentGroup.GetMemberCount();
@@ -195,6 +202,9 @@ public class BallotCollector : NetworkBehaviour
 
     public void LockInVotes()
     {
+        Debug.Log($"[LockInVotes] Called | IsOwner: {IsOwner} | HasLockedIn: {_hasLockedIn}");
+        Debug.Log($"[LockInVotes] Ballots: {GetBallotCount()} | Artists: {GetArtistBallots()} | Nerds: {GetNerdBallots()} | Athletes: {GetAthleteBallots()}");
+
         if (!IsOwner || _hasLockedIn) return;
         if (GetBallotCount() == 0 && GetArtistBallots() == 0 &&
             GetNerdBallots() == 0 && GetAthleteBallots() == 0)
@@ -217,7 +227,7 @@ public class BallotCollector : NetworkBehaviour
     [ServerRpc]
     private void LockInServerRpc(int playerNumber)
     {
-        Debug.Log($"LockInServerRpc — playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
+        Debug.Log($"[LockInServerRpc] playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
         if (playerNumber == 0) return;
         RoundManager.Instance.LockInVotesServerRpc(playerNumber);
     }

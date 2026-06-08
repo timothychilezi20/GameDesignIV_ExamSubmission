@@ -24,10 +24,15 @@ public class RivalCoupleTimer : MonoBehaviour
         rivalProgressBar.minValue = 0;
         rivalProgressBar.maxValue = maxBallots; 
         rivalProgressBar.value = 0;
+
+        StartNextRound(); //Only thing added
     }
 
     void Update()
     {
+        if (currentRound == 0 && elapsedTime >= roundDuration * 0.5f)
+            TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.RivalGoal); //Added for tutorial
+
         if (collectionPhaseActive && currentRound < totalRounds)
         {
             elapsedTime += Time.deltaTime;
@@ -70,4 +75,17 @@ public class RivalCoupleTimer : MonoBehaviour
         int ballots = Mathf.RoundToInt(rivalProgressBar.value);
         Debug.Log($"Reveal Phase: Rival Couple currently has {ballots} ballots!");
     }
+
+    public void GetRoundScores(out int rival1Score, out int rival2Score)
+    {
+        // Calculate how many ballots were collected this round
+        float roundBallots = Mathf.Min(elapsedTime * ballotsPerSecond, ballotsPerRound);
+
+        // Split evenly between the two rivals
+        int total = Mathf.RoundToInt(roundBallots);
+        rival1Score = total / 2;
+        rival2Score = total - rival1Score; // handles odd numbers cleanly
+    }
+
+    public int GetCurrentRound() => currentRound;
 }

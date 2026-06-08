@@ -300,6 +300,8 @@ public class GossiperClone : MonoBehaviour
 
     private void LogPlayerSpotted(Transform player)
     {
+        TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.Gossipers);
+
         apayinCloneScript playerController =
             player.GetComponent<apayinCloneScript>();
 

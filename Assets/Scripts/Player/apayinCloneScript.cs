@@ -504,8 +504,10 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
         {
             if (context.performed)
             {
+                Debug.Log("[apayinCloneScript] LockInVotes triggered");
                 // Hold completed at voting station — lock in votes
                 _ballotCollector.LockInVotes();
+
             }
             return;
         }
