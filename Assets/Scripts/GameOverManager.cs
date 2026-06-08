@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using System.Collections;
 public class GameOverManager : NetworkBehaviour
 {
+
     public static GameOverManager Instance { get; private set; }
 
     [Header("Panels")]

@@ -123,6 +123,7 @@ public class TutorialManager : MonoBehaviour
     private Sprite GetSprite(TutorialType type)
     {
         switch (type)
+
         {
             case TutorialType.RumourFeed: return _rumourFeedPrompt;
             case TutorialType.RivalGoal: return _rivalGoalPrompt;
