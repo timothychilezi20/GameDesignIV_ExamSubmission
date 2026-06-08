@@ -40,6 +40,7 @@ public class RumorFeed : MonoBehaviour
 
     public void AddRumor(string playerLabel, string areaName, bool isInterior)
     {
+        AudioManager.Instance?.PlayRumourPing();
 
       //  Debug.Log($"AddRumor called — label: {playerLabel} | area: {areaName} | prefab null: {_rumorEntryPrefab == null} | container null: {_rumorContainer == null}");
         // If at max, remove the oldest immediately

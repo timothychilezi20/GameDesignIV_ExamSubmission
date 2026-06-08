@@ -123,6 +123,16 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     private IEnumerator OwnerSetupRoutine()
     {
+        yield return null;
+
+        if (!IsOwner)
+        {
+            // Disable audio listener on non-owner cameras
+            AudioListener listener = Camera.main?.GetComponent<AudioListener>();
+            if (listener != null)
+                listener.enabled = false;
+            yield break;
+        }
         // One frame wait for ownership to fully propagate
         yield return null;
 
@@ -506,9 +516,17 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (_ballotCollector.CurrentStation != null)
         {
-            if (context.performed)
+            if (context.started)
             {
-                // Hold completed at voting station — lock in votes
+                Debug.Log("[apayinCloneScript] LockInVotes triggered");
+
+                // Only play dropoff animation if there are ballots to dump
+                if (_ballotCollector.GetBallotCount() > 0)
+                {
+                    cloneAnimator.SetTrigger("DropOffTrigger");
+                    TriggerDropOffServerRpc();
+                }
+
                 _ballotCollector.LockInVotes();
             }
             return;
