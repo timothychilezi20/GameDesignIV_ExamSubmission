@@ -183,8 +183,7 @@ public class RoundManager : NetworkBehaviour
     private IEnumerator RevealSequence()
     {
         _revealActive.Value = true;
-        Debug.Log("Reveal phase started");
-
+        AudioManager.Instance?.PlayRevealBuildup(); // buildup music
         SnapshotRoundVotes();
 
         yield return new WaitForSecondsRealtime(_revealDuration);
@@ -197,9 +196,10 @@ public class RoundManager : NetworkBehaviour
             _currentRound.Value++;
 
         ResetBallotsClientRpc();
-
-        // Start the rival timer for the next round
         StartRivalTimerClientRpc();
+
+        // Return to exploration music after reveal
+        AudioManager.Instance?.PlayMusic(AudioManager.MusicState.Exploration);
 
         Debug.Log($"Reveal phase ended — now on round {_currentRound.Value}");
     }

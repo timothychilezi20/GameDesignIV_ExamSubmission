@@ -119,6 +119,16 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     private IEnumerator OwnerSetupRoutine()
     {
+        yield return null;
+
+        if (!IsOwner)
+        {
+            // Disable audio listener on non-owner cameras
+            AudioListener listener = Camera.main?.GetComponent<AudioListener>();
+            if (listener != null)
+                listener.enabled = false;
+            yield break;
+        }
         // One frame wait for ownership to fully propagate
         yield return null;
 

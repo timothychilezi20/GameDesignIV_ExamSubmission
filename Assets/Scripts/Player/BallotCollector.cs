@@ -92,6 +92,8 @@ public class BallotCollector : NetworkBehaviour
 
     public void DumpBallotsToServer()
     {
+        AudioManager.Instance?.PlayBallotDump();
+
         if (!IsOwner) return;
         if (GetBallotCount() == 0) return;
 
@@ -145,6 +147,9 @@ public class BallotCollector : NetworkBehaviour
     public void OnCollectVotesPerformed()
     {
         TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.LockIn);
+
+        Debug.Log($"[BallotCollector] AudioManager null: {AudioManager.Instance == null}");
+        AudioManager.Instance?.PlayBallotCollect();
 
         if (!IsOwner || !_isCollecting || _currentGroup == null) return;
 
@@ -202,6 +207,8 @@ public class BallotCollector : NetworkBehaviour
 
     public void LockInVotes()
     {
+        AudioManager.Instance?.PlayLockIn();
+
         Debug.Log($"[LockInVotes] Called | IsOwner: {IsOwner} | HasLockedIn: {_hasLockedIn}");
         Debug.Log($"[LockInVotes] Ballots: {GetBallotCount()} | Artists: {GetArtistBallots()} | Nerds: {GetNerdBallots()} | Athletes: {GetAthleteBallots()}");
 
