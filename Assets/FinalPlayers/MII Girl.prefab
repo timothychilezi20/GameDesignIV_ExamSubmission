@@ -5638,6 +5638,8 @@ MonoBehaviour:
   _redTotalRound2Text: {fileID: 2736943057520049637}
   _redTotalRound3Text: {fileID: 1670860562012343066}
   _redGrandTotalText: {fileID: 3671231241744162892}
+  _compatibleCliquesText: {fileID: 0}
+  _multiplierBadge: {fileID: 0}
 --- !u!1 &7516252379259251541
 GameObject:
   m_ObjectHideFlags: 0
@@ -6652,7 +6654,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 0/10
+  m_text: 0/50
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -6770,7 +6772,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RumorFeed
   _rumorContainer: {fileID: 5211425888517620573}
   _rumorEntryPrefab: {fileID: 4151941708597212091, guid: 052b7e65e2620c542b83cbfd1605f029, type: 3}
-  _maxRumors: 4
+  _maxRumors: 3
   _fadeDelay: 10
 --- !u!1 &8836152679583017614
 GameObject:

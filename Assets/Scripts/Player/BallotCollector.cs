@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 using TMPro;
 using System.Collections;
@@ -49,7 +49,6 @@ public class BallotCollector : NetworkBehaviour
         if (_ballotText != null)
             UpdateBallotText(_ballotCount.Value);
 
-        // If text isn't set yet, retry after a frame
         if (_ballotText == null && IsOwner)
             StartCoroutine(RetrySetBallotText());
     }
@@ -84,11 +83,7 @@ public class BallotCollector : NetworkBehaviour
         Debug.Log("Ballots cleared");
     }
 
-    [ServerRpc]
-    private void AddVotesToServerRpc(int artists, int nerds, int athletes, int playerNumber)
-    {
-        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes, playerNumber);
-    }
+    // ─── Dump ─────────────────────────────────────────────────────
 
     public void DumpBallotsToServer()
     {
@@ -99,48 +94,66 @@ public class BallotCollector : NetworkBehaviour
         int nerds = GetNerdBallots();
         int athletes = GetAthleteBallots();
 
-        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
-        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
+        ClearBallots();
+        AddVotesToServerRpc(artists, nerds, athletes);
+    }
 
-        // Debug compatible cliques
-        CliqueGroup.CliqueType[] compatible = RoundManager.Instance?.GetCompatibleCliques();
-        Debug.Log($"[DumpBallotsToServer] Player: {playerNumber} | Compatible null: {compatible == null} | Compatible count: {compatible?.Length}");
-        if (compatible != null)
-            foreach (var c in compatible)
-                Debug.Log($"[DumpBallotsToServer] Compatible clique: {c}");
+    [ServerRpc]
+    private void AddVotesToServerRpc(int artists, int nerds, int athletes)
+    {
+        int playerNumber = OwnerClientId == 0 ? 1 : 2;
 
+        // Work out which of the dumped ballots came from compatible cliques.
+        // Compatible cliques are set per-round by RoundManager and synced
+        // via NetworkVariables, so both host and client read the same values.
         int compatibleArtists = 0;
         int compatibleNerds = 0;
         int compatibleAthletes = 0;
 
-        if (compatible != null)
+        if (RoundManager.Instance != null)
         {
+            CliqueGroup.CliqueType[] compatible = RoundManager.Instance.GetCompatibleCliques();
             foreach (CliqueGroup.CliqueType type in compatible)
             {
                 switch (type)
                 {
-                    case CliqueGroup.CliqueType.Artists: compatibleArtists = artists; break;
-                    case CliqueGroup.CliqueType.Nerds: compatibleNerds = nerds; break;
-                    case CliqueGroup.CliqueType.Athletes: compatibleAthletes = athletes; break;
+                    case CliqueGroup.CliqueType.Artists:
+                        compatibleArtists = artists;
+                        break;
+                    case CliqueGroup.CliqueType.Nerds:
+                        compatibleNerds = nerds;
+                        break;
+                    case CliqueGroup.CliqueType.Athletes:
+                        compatibleAthletes = athletes;
+                        break;
                 }
             }
         }
 
-        Debug.Log($"[DumpBallotsToServer] Artists: {artists} | Nerds: {nerds} | Athletes: {athletes} | CompatibleArtists: {compatibleArtists} | CompatibleNerds: {compatibleNerds} | CompatibleAthletes: {compatibleAthletes}");
+        Debug.Log($"[BallotCollector] AddVotesToServerRpc — Player: {playerNumber} | " +
+                  $"Artists: {artists} | Nerds: {nerds} | Athletes: {athletes} | " +
+                  $"Compatible — Artists: {compatibleArtists} | Nerds: {compatibleNerds} | Athletes: {compatibleAthletes}");
 
-        ClearBallots();
-        AddVotesToServerRpc(artists, nerds, athletes, playerNumber, compatibleArtists, compatibleNerds, compatibleAthletes);
+        // Send to VoteManager with full compatible breakdown
+        VoteManager.Instance.ReceiveVotes(
+            artists, nerds, athletes,
+            playerNumber,
+            compatibleArtists, compatibleNerds, compatibleAthletes
+        );
+
+        // Record per-clique breakdown in RoundStats for the reveal log
+        if (RoundStats.Instance != null)
+            RoundStats.Instance.RecordBallots(playerNumber, artists, nerds, athletes);
     }
 
-    [ServerRpc]
-    private void AddVotesToServerRpc(int artists, int nerds, int athletes, int playerNumber, int compatibleArtists, int compatibleNerds, int compatibleAthletes)
-    {
-        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes, playerNumber, compatibleArtists, compatibleNerds, compatibleAthletes);
-    }
+    // ─── Collection ───────────────────────────────────────────────
 
     public void OnCollectVotesStarted()
     {
-        if (!IsOwner || _isCollecting) return;
+        if (!IsOwner) return;
+
+        _isCollecting = false;
+        _currentGroup = null;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, _interactCheckRadius, _cliqueLayer);
         if (hits.Length == 0) return;
@@ -152,6 +165,7 @@ public class BallotCollector : NetworkBehaviour
         {
             CliqueGroup group = hit.GetComponent<CliqueGroup>();
             if (group == null || group.HasBeenCollected) continue;
+            if (group._classInSession) continue;
 
             float dist = Vector3.Distance(transform.position, hit.transform.position);
             if (dist < closest)
@@ -174,11 +188,6 @@ public class BallotCollector : NetworkBehaviour
 
     public void OnCollectVotesPerformed()
     {
-        TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.LockIn);
-
-        Debug.Log($"[BallotCollector] AudioManager null: {AudioManager.Instance == null}");
-        AudioManager.Instance?.PlayBallotCollect();
-
         if (!IsOwner || !_isCollecting || _currentGroup == null) return;
 
         int ballotsToAdd = _currentGroup.GetMemberCount();
@@ -216,6 +225,47 @@ public class BallotCollector : NetworkBehaviour
         _isCollecting = false;
     }
 
+    // ─── Lock In ──────────────────────────────────────────────────
+
+    public void LockInVotes()
+    {
+        if (!IsOwner || _hasLockedIn) return;
+        if (GetBallotCount() == 0 && GetArtistBallots() == 0 &&
+            GetNerdBallots() == 0 && GetAthleteBallots() == 0)
+        {
+            Debug.Log("No votes to lock in");
+            return;
+        }
+
+        DumpBallotsToServer();
+        _hasLockedIn = true;
+        Debug.Log("Votes locked in — waiting for other player");
+
+        int playerNumber = OwnerClientId == 0 ? 1 : 2;
+        Debug.Log($"Locking in as Player {playerNumber}");
+
+        LockInServerRpc(playerNumber);
+    }
+
+    [ServerRpc]
+    private void LockInServerRpc(int playerNumber)
+    {
+        Debug.Log($"LockInServerRpc — playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
+        if (playerNumber == 0) return;
+        RoundManager.Instance.LockInVotesServerRpc(playerNumber);
+    }
+
+    // ─── Reset ────────────────────────────────────────────────────
+
+    public void ResetForNewRound()
+    {
+        _hasLockedIn = false;
+        _isCollecting = false;
+        Debug.Log("BallotCollector reset for new round");
+    }
+
+    // ─── UI ───────────────────────────────────────────────────────
+
     private void OnBallotCountChanged(int previous, int current)
     {
         UpdateBallotText(current);
@@ -227,53 +277,17 @@ public class BallotCollector : NetworkBehaviour
             _ballotText.text = $"{count}/{_maxBallots}";
     }
 
-    public void SetBallotText(TextMeshProUGUI text)
+    public void SetBallotText(TMPro.TextMeshProUGUI text)
     {
         _ballotText = text;
         UpdateBallotText(_ballotCount.Value);
     }
 
-    public void LockInVotes()
-    {
-        AudioManager.Instance?.PlayLockIn();
-
-        Debug.Log($"[LockInVotes] Called | IsOwner: {IsOwner} | HasLockedIn: {_hasLockedIn}");
-        Debug.Log($"[LockInVotes] Ballots: {GetBallotCount()} | Artists: {GetArtistBallots()} | Nerds: {GetNerdBallots()} | Athletes: {GetAthleteBallots()}");
-
-        if (!IsOwner || _hasLockedIn) return;
-        if (GetBallotCount() == 0 && GetArtistBallots() == 0 &&
-            GetNerdBallots() == 0 && GetAthleteBallots() == 0)
-        {
-            Debug.Log("No votes to lock in");
-            return;
-        }
-
-        DumpBallotsToServer();
-        _hasLockedIn = true;
-        Debug.Log("Votes locked in");
-
-        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
-        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
-        Debug.Log($"Locking in as Player {playerNumber}");
-
-        LockInServerRpc(playerNumber);
-    }
-
-    [ServerRpc]
-    private void LockInServerRpc(int playerNumber)
-    {
-        Debug.Log($"[LockInServerRpc] playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
-        if (playerNumber == 0) return;
-        RoundManager.Instance.LockInVotesServerRpc(playerNumber);
-    }
-
-    public void ResetForNewRound()
-    {
-        _hasLockedIn = false;
-    }
+    // ─── Getters ──────────────────────────────────────────────────
 
     public int GetBallotCount() => _ballotCount.Value;
     public int GetArtistBallots() => _artistBallots.Value;
     public int GetNerdBallots() => _nerdBallots.Value;
     public int GetAthleteBallots() => _athleteBallots.Value;
 }
+

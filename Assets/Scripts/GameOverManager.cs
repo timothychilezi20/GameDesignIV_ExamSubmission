@@ -1,11 +1,12 @@
-using UnityEngine;
-using UnityEngine.UI;
-using Unity.Netcode;
-using UnityEngine.SceneManagement;
 using System.Collections;
+using TMPro;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
 public class GameOverManager : NetworkBehaviour
 {
-
     public static GameOverManager Instance { get; private set; }
 
     [Header("Panels")]
@@ -20,9 +21,9 @@ public class GameOverManager : NetworkBehaviour
     [SerializeField] private Button _winMenuButton;
     [SerializeField] private Button _loseMenuButton;
 
-    [Header("Particles")]
-    [SerializeField] private GameObject _winParticleCanvas;
-
+    [Header("Summary (optional)")]
+    [Tooltip("Optional label to show the winning compatible cliques at game over")]
+    [SerializeField] private TextMeshProUGUI _summaryText;
 
     private void Awake()
     {
@@ -39,35 +40,33 @@ public class GameOverManager : NetworkBehaviour
         if (_winPanel != null) _winPanel.SetActive(false);
         if (_losePanel != null) _losePanel.SetActive(false);
 
-        if (_winMenuButton != null)
-            _winMenuButton.onClick.AddListener(ReturnToMainMenu);
-
-        if (_loseMenuButton != null)
-            _loseMenuButton.onClick.AddListener(ReturnToMainMenu);
+        if (_winMenuButton != null) _winMenuButton.onClick.AddListener(ReturnToMainMenu);
+        if (_loseMenuButton != null) _loseMenuButton.onClick.AddListener(ReturnToMainMenu);
     }
 
-    // Called by RoundManager after round 3 reveal ends
+    // Called by RoundManager.CheckWinCondition after all rounds complete
     [ClientRpc]
     public void ShowGameOverClientRpc(bool playersWon)
     {
         Debug.Log($"[GameOverManager] ShowGameOver — playersWon: {playersWon}");
 
-        // Pause the game
         Time.timeScale = 0f;
 
+        if (_winPanel != null) _winPanel.SetActive(playersWon);
+        if (_losePanel != null) _losePanel.SetActive(!playersWon);
+
+        // Show which cliques were on good terms in the final round, if available
+        if (_summaryText != null && CliqueRelationshipManager.Instance != null)
+        {
+            string c1 = CliqueRelationshipManager.Instance.GetGoodTermsClique1().ToString();
+            string c2 = CliqueRelationshipManager.Instance.GetGoodTermsClique2().ToString();
+            _summaryText.text = $"Final round social dynamic: {c1} + {c2}";
+        }
+
         if (playersWon)
-        {
-            if (_winPanel != null) _winPanel.SetActive(true);
-            if (_winParticleCanvas != null) _winParticleCanvas.SetActive(true);
             AudioManager.Instance?.PlayMusic(AudioManager.MusicState.RevealSuccess);
-        }
         else
-        {
-            if (_winPanel != null) _winPanel.SetActive(false);
-            if (_winParticleCanvas != null) _winParticleCanvas.SetActive(false);
-            if (_losePanel != null) _losePanel.SetActive(true);
             AudioManager.Instance?.PlayMusic(AudioManager.MusicState.RevealFailure);
-        }
 
         StartCoroutine(AutoReturnRoutine());
     }
