@@ -41,7 +41,7 @@ public class RumorFeed : MonoBehaviour
     public void AddRumor(string playerLabel, string areaName, bool isInterior)
     {
 
-        Debug.Log($"AddRumor called — label: {playerLabel} | area: {areaName} | prefab null: {_rumorEntryPrefab == null} | container null: {_rumorContainer == null}");
+      //  Debug.Log($"AddRumor called — label: {playerLabel} | area: {areaName} | prefab null: {_rumorEntryPrefab == null} | container null: {_rumorContainer == null}");
         // If at max, remove the oldest immediately
         if (_activeEntries.Count >= _maxRumors)
             RemoveOldest();

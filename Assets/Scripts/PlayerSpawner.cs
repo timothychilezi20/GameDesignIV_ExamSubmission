@@ -40,7 +40,7 @@ public class PlayerSpawner : NetworkBehaviour
         foreach (ulong clientId in clients)
         {
             int spawnIndex = clientId == NetworkManager.ServerClientId ? 0 : 1;
-            Debug.Log($"Spawning client {clientId} at spawn point {spawnIndex}");
+           // Debug.Log($"Spawning client {clientId} at spawn point {spawnIndex}");
             yield return StartCoroutine(SpawnPlayer(clientId, spawnIndex));
         }
     }

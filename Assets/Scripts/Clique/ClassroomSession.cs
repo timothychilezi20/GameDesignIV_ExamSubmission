@@ -81,7 +81,7 @@ public class ClassroomSession : MonoBehaviour
             group.StartClassSession(teacherTransform);
         }
 
-        Debug.Log($"{gameObject.name} session started");
+       // Debug.Log($"{gameObject.name} session started");
     }
 
     private void EndSession()
@@ -105,7 +105,7 @@ public class ClassroomSession : MonoBehaviour
             group.EndClassSession();
         }
 
-        Debug.Log($"{gameObject.name} session ended");
+       // Debug.Log($"{gameObject.name} session ended");
     }
 
     private void SetDoors(bool closed)

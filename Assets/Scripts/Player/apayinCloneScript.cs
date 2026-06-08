@@ -101,7 +101,7 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
     public override void OnNetworkSpawn()
     {
-        Debug.Log($"OnNetworkSpawn — IsOwner: {IsOwner} | IsHost: {IsHost} | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
+       // Debug.Log($"OnNetworkSpawn — IsOwner: {IsOwner} | IsHost: {IsHost} | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
 
         if (IsHost)
             cloneAnimator.runtimeAnimatorController = maleController;
@@ -110,7 +110,7 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (!IsOwner)
         {
-            Debug.Log($"Not owner — disabling CC | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
+          //  Debug.Log($"Not owner — disabling CC | OwnerClientId: {OwnerClientId} | LocalClientId: {NetworkManager.Singleton.LocalClientId}");
             if (cloneController != null)
                 cloneController.enabled = false;
 

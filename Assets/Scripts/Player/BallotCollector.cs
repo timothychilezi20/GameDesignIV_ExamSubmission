@@ -85,9 +85,17 @@ public class BallotCollector : NetworkBehaviour
     }
 
     [ServerRpc]
+   
     private void AddVotesToServerRpc(int artists, int nerds, int athletes)
     {
+        int playerNumber = OwnerClientId == 0 ? 1 : 2;
+
+        // Record in VoteManager for overall totals
         VoteManager.Instance.ReceiveVotes(artists, nerds, athletes);
+
+        // Record in RoundStats for per-round per-player breakdown
+        if (RoundStats.Instance != null)
+            RoundStats.Instance.RecordBallots(playerNumber, artists, nerds, athletes);
     }
 
     public void DumpBallotsToServer()
@@ -227,7 +235,7 @@ public class BallotCollector : NetworkBehaviour
     {
         Debug.Log($"LockInServerRpc — playerNumber: {playerNumber} | RoundManager null: {RoundManager.Instance == null}");
         if (playerNumber == 0) return;
-        RoundManager.Instance.LockInVotesServerRpc(playerNumber);
+        RoundManager.Instance.HandleLockIn(playerNumber);
     }
 
     public void ResetForNewRound()
