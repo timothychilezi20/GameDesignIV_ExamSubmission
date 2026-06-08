@@ -300,10 +300,6 @@ public class GossiperClone : MonoBehaviour
 
     private void LogPlayerSpotted(Transform player)
     {
-        AudioManager.Instance?.EnterDangerZone();
-
-        TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.Gossipers);
-
         apayinCloneScript playerController =
             player.GetComponent<apayinCloneScript>();
 

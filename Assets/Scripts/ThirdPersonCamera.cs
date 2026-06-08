@@ -24,17 +24,6 @@ public class ThirdPersonCamera : MonoBehaviour
     private float _currentDistance;
     private float _targetDistance;
 
-    private void Start()
-    {
-        // Ensure this camera has an Audio Listener
-        AudioListener listener = GetComponent<AudioListener>();
-        if (listener == null)
-            gameObject.AddComponent<AudioListener>();
-
-        _currentDistance = offset.magnitude;
-        _targetDistance = _currentDistance;
-    }
-
     private void OnEnable()
     {
         controls = new GameInput();
