@@ -20,6 +20,10 @@ public class GameOverManager : NetworkBehaviour
     [SerializeField] private Button _winMenuButton;
     [SerializeField] private Button _loseMenuButton;
 
+    [Header("Particles")]
+    [SerializeField] private GameObject _winParticleCanvas;
+
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -54,12 +58,13 @@ public class GameOverManager : NetworkBehaviour
         if (playersWon)
         {
             if (_winPanel != null) _winPanel.SetActive(true);
-            if (_losePanel != null) _losePanel.SetActive(false);
+            if (_winParticleCanvas != null) _winParticleCanvas.SetActive(true);
             AudioManager.Instance?.PlayMusic(AudioManager.MusicState.RevealSuccess);
         }
         else
         {
             if (_winPanel != null) _winPanel.SetActive(false);
+            if (_winParticleCanvas != null) _winParticleCanvas.SetActive(false);
             if (_losePanel != null) _losePanel.SetActive(true);
             AudioManager.Instance?.PlayMusic(AudioManager.MusicState.RevealFailure);
         }
