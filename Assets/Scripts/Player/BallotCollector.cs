@@ -105,7 +105,12 @@ public class BallotCollector : NetworkBehaviour
 
     public void OnCollectVotesStarted()
     {
-        if (!IsOwner || _isCollecting) return;
+        if (!IsOwner) return;
+
+        // Hard reset collecting state before each new attempt
+        // prevents stale state from blocking subsequent holds
+        _isCollecting = false;
+        _currentGroup = null;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, _interactCheckRadius, _cliqueLayer);
         if (hits.Length == 0) return;
@@ -117,6 +122,7 @@ public class BallotCollector : NetworkBehaviour
         {
             CliqueGroup group = hit.GetComponent<CliqueGroup>();
             if (group == null || group.HasBeenCollected) continue;
+            if (group._classInSession) continue;
 
             float dist = Vector3.Distance(transform.position, hit.transform.position);
             if (dist < closest)
@@ -205,10 +211,12 @@ public class BallotCollector : NetworkBehaviour
 
         DumpBallotsToServer();
         _hasLockedIn = true;
-        Debug.Log("Votes locked in");
+      //  Time.timeScale = 0f;
+        Debug.Log("Votes locked in — waiting for other player");
 
-        PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
-        int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
+        // Get player number from local client ID directly
+        // OwnerClientId 0 = host = Player 1, anything else = Player 2
+        int playerNumber = OwnerClientId == 0 ? 1 : 2;
         Debug.Log($"Locking in as Player {playerNumber}");
 
         LockInServerRpc(playerNumber);
@@ -225,6 +233,9 @@ public class BallotCollector : NetworkBehaviour
     public void ResetForNewRound()
     {
         _hasLockedIn = false;
+        _isCollecting = false;
+      //  Time.timeScale = 1f;
+        Debug.Log("BallotCollector reset for new round");
     }
 
     public int GetBallotCount() => _ballotCount.Value;

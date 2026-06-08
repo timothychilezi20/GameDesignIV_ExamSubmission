@@ -15,11 +15,11 @@ public class CliqueGroup : MonoBehaviour
 
     [Header("Classroom")]
     [SerializeField] private bool _isInClassroom = false;
-    public bool HasBeenCollected { get; private set; } = false;
+    public bool HasBeenCollected { get; set; } = false;
     private Transform _nearbyPlayer = null;
     public float InteractDistance => _interactDistance;
 
-    private bool _classInSession = false;
+    public bool _classInSession = false;
     private Transform _teacherTransform = null;
 
     private void Start()
@@ -89,6 +89,11 @@ public class CliqueGroup : MonoBehaviour
     }
     public void SetNearbyPlayer(Transform player) => _nearbyPlayer = player;
     public void ClearNearbyPlayer() => _nearbyPlayer = null;
+
+    public void ResetForNewRound()
+    {
+        HasBeenCollected = false;
+    }
 
     public void StartClassSession(Transform teacher)
     {

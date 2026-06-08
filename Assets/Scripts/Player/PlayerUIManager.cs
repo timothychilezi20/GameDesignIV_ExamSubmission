@@ -95,7 +95,15 @@ public class PlayerUIManager : NetworkBehaviour
         Debug.Log($"Local player is Player {playerNumber}");
     }
 
-    public int GetPlayerNumber() => _playerNumber.Value;
+    public int GetPlayerNumber()
+    {
+        if (_playerNumber.Value != 0) return _playerNumber.Value;
+        // Fallback: calculate directly from ownership
+        bool isLocalPlayer = OwnerClientId == NetworkManager.Singleton.LocalClientId;
+        if (isLocalPlayer)
+            return OwnerClientId == 0 ? 1 : 2;
+        return 0;
+    }
 
     public void SetRevealPanel(bool active)
     {

@@ -41,6 +41,10 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
     public string CurrentCliqueName { get; private set; } = "";
     public bool IsAtVotingStation { get; private set; } = false;
 
+
+    private bool _animationTriggered = false;
+
+
     // ─────────────────────────────────────────
     // NETWORK TRANSFORM VARIABLES
     // ─────────────────────────────────────────
@@ -512,17 +516,14 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (context.started)
         {
-            int ballotCount = _ballotCollector.GetBallotCount();
-            Debug.Log($"[OnCollectVotes] started — ballot count: {ballotCount}");
-            _ballotCollector.OnCollectVotesStarted();
-
-            if (ballotCount > 0)
+            // Guard prevents animation from firing multiple times
+            if (!_animationTriggered)
             {
-                // _ballotCollector.TryDumpBallots();
-                cloneAnimator.SetTrigger("DropOffTrigger");
-                TriggerDropOffServerRpc();
-                Debug.Log("[OnCollectVotes] DropOff trigger set");
+                _animationTriggered = true;
+                cloneAnimator.SetTrigger("PickUpTrigger");
+                TriggerPickUpServerRpc();
             }
+            _ballotCollector.OnCollectVotesStarted();
         }
         else if (context.performed)
         {
@@ -533,6 +534,9 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
         else if (context.canceled)
         {
             _ballotCollector.OnCollectVotesCancelled();
+
+            _animationTriggered = false;
+            cloneAnimator.ResetTrigger("PickUpTrigger");
         }
     }
 

@@ -131,7 +131,7 @@ public class MainMenuUI : MonoBehaviour
         }
 
         NetworkManager.Singleton.SceneManager.LoadScene(
-            "BackUpScene",
+            "BackApayinUp",
             LoadSceneMode.Single
         );
     }
