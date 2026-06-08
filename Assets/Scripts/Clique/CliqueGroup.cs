@@ -25,10 +25,12 @@ public class CliqueGroup : MonoBehaviour
     private void Start()
     {
         System.Collections.Generic.List<Transform> members = new System.Collections.Generic.List<Transform>();
-        _members = new Transform[transform.childCount];
         for (int i = 0; i < transform.childCount; i++)
-            members.Add(transform.GetChild(i));
-
+        {
+            Transform child = transform.GetChild(i);
+            if (child.GetComponent<Canvas>() == null)
+                members.Add(child);
+        }
         _members = members.ToArray();
     }
 
