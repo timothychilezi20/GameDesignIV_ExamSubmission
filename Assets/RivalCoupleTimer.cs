@@ -43,14 +43,15 @@ public class RivalCoupleTimer : MonoBehaviour
 
             if (elapsedTime >= roundDuration)
             {
-                
                 elapsedTime = roundDuration;
                 rivalProgressBar.value = (currentRound * ballotsPerRound) + ballotsPerRound;
-
-                collectionPhaseActive = false; 
+                collectionPhaseActive = false;
                 Debug.Log($"Round {currentRound + 1} ended at {rivalProgressBar.value} ballots!");
-
                 currentRound++;
+
+                // Force end the round without multiplier
+                if (RoundManager.Instance != null)
+                    RoundManager.Instance.ForceEndRoundServerRpc();
             }
         }
     }

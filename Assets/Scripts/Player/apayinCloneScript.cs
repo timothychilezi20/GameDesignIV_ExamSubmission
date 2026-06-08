@@ -512,12 +512,18 @@ public class apayinCloneScript : NetworkBehaviour, GameInput.IPlayerMovementActi
 
         if (_ballotCollector.CurrentStation != null)
         {
-            if (context.performed)
+            if (context.started)
             {
                 Debug.Log("[apayinCloneScript] LockInVotes triggered");
-                // Hold completed at voting station — lock in votes
-                _ballotCollector.LockInVotes();
 
+                // Only play dropoff animation if there are ballots to dump
+                if (_ballotCollector.GetBallotCount() > 0)
+                {
+                    cloneAnimator.SetTrigger("DropOffTrigger");
+                    TriggerDropOffServerRpc();
+                }
+
+                _ballotCollector.LockInVotes();
             }
             return;
         }

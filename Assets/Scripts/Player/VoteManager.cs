@@ -28,6 +28,42 @@ public class VoteManager : NetworkBehaviour
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
     );
 
+    private NetworkVariable<int> _player1CompatibleVotes = new NetworkVariable<int>(
+    0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+);
+    private NetworkVariable<int> _player2CompatibleVotes = new NetworkVariable<int>(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+    );
+
+    public void ReceiveVotes(int artists, int nerds, int athletes, int playerNumber, int compatibleArtists, int compatibleNerds, int compatibleAthletes)
+    {
+        if (!IsServer) return;
+
+        int total = artists + nerds + athletes;
+        int compatibleTotal = compatibleArtists + compatibleNerds + compatibleAthletes;
+
+        _artistVotes.Value += artists;
+        _nerdVotes.Value += nerds;
+        _athleteVotes.Value += athletes;
+        _totalVotes.Value += total;
+
+        if (playerNumber == 1)
+        {
+            _player1Votes.Value += total;
+            _player1CompatibleVotes.Value += compatibleTotal;
+        }
+        else if (playerNumber == 2)
+        {
+            _player2Votes.Value += total;
+            _player2CompatibleVotes.Value += compatibleTotal;
+        }
+
+        Debug.Log($"[VoteManager] ReceiveVotes — Player: {playerNumber} | Total: {total} | Compatible: {compatibleTotal}");
+    }
+
+    public int GetPlayer1CompatibleVotes() => _player1CompatibleVotes.Value;
+    public int GetPlayer2CompatibleVotes() => _player2CompatibleVotes.Value;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -67,6 +103,16 @@ public class VoteManager : NetworkBehaviour
         Debug.Log($"Votes received — Artists: {artists} | Nerds: {nerds} | Athletes: {athletes} | Player: {playerNumber}");
         Debug.Log($"Total — P1: {_player1Votes.Value} | P2: {_player2Votes.Value} | Total: {_totalVotes.Value}");
     }
+
+    public void ResetRoundVotes()
+    {
+        if (!IsServer) return;
+        // Only reset compatible vote counters — totals stay cumulative for delta calculation
+        _player1CompatibleVotes.Value = 0;
+        _player2CompatibleVotes.Value = 0;
+        Debug.Log("[VoteManager] Round votes reset — compatible counters cleared");
+    }
+
     public int GetTotalVotes() => _totalVotes.Value;
     public int GetArtistVotes() => _artistVotes.Value;
     public int GetNerdVotes() => _nerdVotes.Value;

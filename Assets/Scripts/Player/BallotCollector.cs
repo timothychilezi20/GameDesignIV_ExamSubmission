@@ -92,8 +92,6 @@ public class BallotCollector : NetworkBehaviour
 
     public void DumpBallotsToServer()
     {
-        AudioManager.Instance?.PlayBallotDump();
-
         if (!IsOwner) return;
         if (GetBallotCount() == 0) return;
 
@@ -104,10 +102,40 @@ public class BallotCollector : NetworkBehaviour
         PlayerUIManager uiManager = GetComponent<PlayerUIManager>();
         int playerNumber = uiManager != null ? uiManager.GetPlayerNumber() : 0;
 
-        Debug.Log($"[DumpBallotsToServer] Player: {playerNumber} | Artists: {artists} | Nerds: {nerds} | Athletes: {athletes}");
+        // Debug compatible cliques
+        CliqueGroup.CliqueType[] compatible = RoundManager.Instance?.GetCompatibleCliques();
+        Debug.Log($"[DumpBallotsToServer] Player: {playerNumber} | Compatible null: {compatible == null} | Compatible count: {compatible?.Length}");
+        if (compatible != null)
+            foreach (var c in compatible)
+                Debug.Log($"[DumpBallotsToServer] Compatible clique: {c}");
+
+        int compatibleArtists = 0;
+        int compatibleNerds = 0;
+        int compatibleAthletes = 0;
+
+        if (compatible != null)
+        {
+            foreach (CliqueGroup.CliqueType type in compatible)
+            {
+                switch (type)
+                {
+                    case CliqueGroup.CliqueType.Artists: compatibleArtists = artists; break;
+                    case CliqueGroup.CliqueType.Nerds: compatibleNerds = nerds; break;
+                    case CliqueGroup.CliqueType.Athletes: compatibleAthletes = athletes; break;
+                }
+            }
+        }
+
+        Debug.Log($"[DumpBallotsToServer] Artists: {artists} | Nerds: {nerds} | Athletes: {athletes} | CompatibleArtists: {compatibleArtists} | CompatibleNerds: {compatibleNerds} | CompatibleAthletes: {compatibleAthletes}");
 
         ClearBallots();
-        AddVotesToServerRpc(artists, nerds, athletes, playerNumber);
+        AddVotesToServerRpc(artists, nerds, athletes, playerNumber, compatibleArtists, compatibleNerds, compatibleAthletes);
+    }
+
+    [ServerRpc]
+    private void AddVotesToServerRpc(int artists, int nerds, int athletes, int playerNumber, int compatibleArtists, int compatibleNerds, int compatibleAthletes)
+    {
+        VoteManager.Instance.ReceiveVotes(artists, nerds, athletes, playerNumber, compatibleArtists, compatibleNerds, compatibleAthletes);
     }
 
     public void OnCollectVotesStarted()

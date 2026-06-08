@@ -14,6 +14,23 @@ public class RoundManager : NetworkBehaviour
     [SerializeField] private float _revealDuration = 30f;
     [SerializeField] private int _totalRounds = 3; //Keeps track of the total rounds
 
+    [Header("Compatible Cliques")]
+    private CliqueGroup.CliqueType[] _compatibleCliques = new CliqueGroup.CliqueType[2];
+
+    public CliqueGroup.CliqueType[] GetCompatibleCliques()
+    {
+        // Always read from NetworkVariables so clients get synced values
+        if (_compatibleClique1.Value >= 0 && _compatibleClique2.Value >= 0)
+        {
+            return new CliqueGroup.CliqueType[]
+            {
+            (CliqueGroup.CliqueType)_compatibleClique1.Value,
+            (CliqueGroup.CliqueType)_compatibleClique2.Value
+            };
+        }
+        return _compatibleCliques;
+    }
+
     // Tracks lock-in state for each player — server writes, all read
     private NetworkVariable<bool> _player1LockedIn = new NetworkVariable<bool>(
         false,
@@ -43,6 +60,14 @@ public class RoundManager : NetworkBehaviour
     private int _player1VotesAtRoundStart = 0;
     private int _player2VotesAtRoundStart = 0;
 
+    // Sync compatible cliques to all clients
+    private NetworkVariable<int> _compatibleClique1 = new NetworkVariable<int>(
+        -1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+    );
+    private NetworkVariable<int> _compatibleClique2 = new NetworkVariable<int>(
+        -1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -58,6 +83,55 @@ public class RoundManager : NetworkBehaviour
         // Subscribe to reveal state changes so all clients
         // can show/hide the reveal panel reactively
         _revealActive.OnValueChanged += OnRevealStateChanged;
+
+        if (IsServer)
+            PickCompatibleCliques();
+    }
+
+    // Add to OnNetworkSpawn or start of game
+    private void PickCompatibleCliques()
+    {
+        System.Collections.Generic.List<CliqueGroup.CliqueType> allTypes = new System.Collections.Generic.List<CliqueGroup.CliqueType>
+    {
+        CliqueGroup.CliqueType.Artists,
+        CliqueGroup.CliqueType.Nerds,
+        CliqueGroup.CliqueType.Athletes
+    };
+
+        int index1 = Random.Range(0, allTypes.Count);
+        _compatibleCliques[0] = allTypes[index1];
+        allTypes.RemoveAt(index1);
+
+        int index2 = Random.Range(0, allTypes.Count);
+        _compatibleCliques[1] = allTypes[index2];
+
+        // Sync to all clients via NetworkVariables
+        _compatibleClique1.Value = (int)_compatibleCliques[0];
+        _compatibleClique2.Value = (int)_compatibleCliques[1];
+
+        Debug.Log($"[RoundManager] Compatible cliques: {_compatibleCliques[0]} and {_compatibleCliques[1]}");
+
+        NotifyCompatibleCliquesClientRpc(
+            (int)_compatibleCliques[0],
+            (int)_compatibleCliques[1]
+        );
+    }
+
+    [ClientRpc]
+    private void NotifyCompatibleCliquesClientRpc(int clique1, int clique2)
+    {
+        string name1 = ((CliqueGroup.CliqueType)clique1).ToString();
+        string name2 = ((CliqueGroup.CliqueType)clique2).ToString();
+        string message = $"Compatible cliques this round: {name1} and {name2} — matching ballots will be doubled!";
+
+        PlayerUIManager[] allPlayers = FindObjectsByType<PlayerUIManager>(FindObjectsSortMode.None);
+        foreach (PlayerUIManager uiManager in allPlayers)
+        {
+            if (!uiManager.IsOwner) continue;
+            RumorFeed feed = uiManager.GetComponentInChildren<RumorFeed>(true);
+            if (feed != null)
+                feed.AddDirectRumor(message);
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -84,30 +158,48 @@ public class RoundManager : NetworkBehaviour
         // Check if both players have locked in
         if (_player1LockedIn.Value && _player2LockedIn.Value)
         {
-            Debug.Log("Both locked in — starting reveal");
-            StartCoroutine(RevealSequence());
+            Debug.Log("Both locked in — starting reveal with multiplier");
+            StartCoroutine(RevealSequence(true)); // multiplier applies
         }
     }
 
-    private void SnapshotRoundVotes()
+    private void SnapshotRoundVotes(bool applyMultiplier)
     {
-        Debug.Log($"[SnapshotRoundVotes] P1 total: {VoteManager.Instance.GetPlayer1Votes()} | P2 total: {VoteManager.Instance.GetPlayer2Votes()}");
-        Debug.Log($"[SnapshotRoundVotes] P1 start: {_player1VotesAtRoundStart} | P2 start: {_player2VotesAtRoundStart}");
-
         if (VoteManager.Instance == null) return;
 
         int round = _currentRound.Value - 1;
 
         int p1Total = VoteManager.Instance.GetPlayer1Votes();
         int p2Total = VoteManager.Instance.GetPlayer2Votes();
+        int p1Compatible = VoteManager.Instance.GetPlayer1CompatibleVotes();
+        int p2Compatible = VoteManager.Instance.GetPlayer2CompatibleVotes();
 
-        _roundVotes[round, 0] = p1Total - _player1VotesAtRoundStart;
-        _roundVotes[round, 1] = p2Total - _player2VotesAtRoundStart;
+        int p1RoundVotes = p1Total - _player1VotesAtRoundStart;
+        int p2RoundVotes = p2Total - _player2VotesAtRoundStart;
 
+        Debug.Log($"[SnapshotRoundVotes] Round: {_currentRound.Value} | applyMultiplier: {applyMultiplier}");
+        Debug.Log($"[SnapshotRoundVotes] P1 total: {p1Total} | P1 start: {_player1VotesAtRoundStart} | P1 round votes: {p1RoundVotes} | P1 compatible: {p1Compatible}");
+        Debug.Log($"[SnapshotRoundVotes] P2 total: {p2Total} | P2 start: {_player2VotesAtRoundStart} | P2 round votes: {p2RoundVotes} | P2 compatible: {p2Compatible}");
+
+        if (applyMultiplier)
+        {
+            int p1Incompatible = p1RoundVotes - p1Compatible;
+            int p2Incompatible = p2RoundVotes - p2Compatible;
+
+            Debug.Log($"[SnapshotRoundVotes] P1 — compatible: {p1Compatible} x2 = {p1Compatible * 2} | incompatible: {p1Incompatible} | final: {(p1Compatible * 2) + p1Incompatible}");
+            Debug.Log($"[SnapshotRoundVotes] P2 — compatible: {p2Compatible} x2 = {p2Compatible * 2} | incompatible: {p2Incompatible} | final: {(p2Compatible * 2) + p2Incompatible}");
+
+            p1RoundVotes = (p1Compatible * 2) + p1Incompatible;
+            p2RoundVotes = (p2Compatible * 2) + p2Incompatible;
+        }
+
+        _roundVotes[round, 0] = p1RoundVotes;
+        _roundVotes[round, 1] = p2RoundVotes;
+
+        // Update start values for next round
         _player1VotesAtRoundStart = p1Total;
         _player2VotesAtRoundStart = p2Total;
 
-        // Get rival scores split between two rivals
         int rival1Score = 0;
         int rival2Score = 0;
         RivalCoupleTimer rivalTimer = FindFirstObjectByType<RivalCoupleTimer>();
@@ -117,10 +209,7 @@ public class RoundManager : NetworkBehaviour
         _roundVotes[round, 2] = rival1Score;
         _roundVotes[round, 3] = rival2Score;
 
-        Debug.Log($"Round {_currentRound.Value} — P1: {_roundVotes[round, 0]} | P2: {_roundVotes[round, 1]} | R1: {rival1Score} | R2: {rival2Score}");
-
-        Debug.Log($"[SnapshotRoundVotes] Sending to panel — blueR1: {_roundVotes[0, 0]} | blueR2: {_roundVotes[1, 0]} | blueR3: {_roundVotes[2, 0]}");
-        Debug.Log($"[SnapshotRoundVotes] Calling UpdateRevealPanelClientRpc");
+        Debug.Log($"[SnapshotRoundVotes] Final — P1: {_roundVotes[round, 0]} | P2: {_roundVotes[round, 1]} | R1: {rival1Score} | R2: {rival2Score}");
 
         UpdateRevealPanelClientRpc(
             _roundVotes[0, 0], _roundVotes[1, 0], _roundVotes[2, 0],
@@ -129,6 +218,22 @@ public class RoundManager : NetworkBehaviour
             _roundVotes[0, 3], _roundVotes[1, 3], _roundVotes[2, 3],
             _currentRound.Value
         );
+    }
+
+    private int ApplyCompatibleMultiplier(int baseVotes, int playerNumber)
+    {
+        if (VoteManager.Instance == null) return baseVotes;
+
+        int compatibleVotes = playerNumber == 1
+            ? VoteManager.Instance.GetPlayer1CompatibleVotes()
+            : VoteManager.Instance.GetPlayer2CompatibleVotes();
+
+        int incompatibleVotes = baseVotes - compatibleVotes;
+        int total = (compatibleVotes * 2) + incompatibleVotes;
+
+        Debug.Log($"[ApplyCompatibleMultiplier] P{playerNumber} — base: {baseVotes} | compatible: {compatibleVotes} | incompatible: {incompatibleVotes} | total after multiplier: {total}");
+
+        return total;
     }
 
     [ClientRpc]
@@ -180,11 +285,11 @@ public class RoundManager : NetworkBehaviour
         }
     }
 
-    private IEnumerator RevealSequence()
+    private IEnumerator RevealSequence(bool applyMultiplier = true)
     {
         _revealActive.Value = true;
-        AudioManager.Instance?.PlayRevealBuildup(); // buildup music
-        SnapshotRoundVotes();
+        AudioManager.Instance?.PlayRevealBuildup();
+        SnapshotRoundVotes(applyMultiplier);
 
         yield return new WaitForSecondsRealtime(_revealDuration);
 
@@ -192,16 +297,52 @@ public class RoundManager : NetworkBehaviour
         _player1LockedIn.Value = false;
         _player2LockedIn.Value = false;
 
+        if (_currentRound.Value >= _totalRounds)
+        {
+            CheckWinCondition();
+            yield break;
+        }
+
         if (_currentRound.Value < _totalRounds)
             _currentRound.Value++;
 
+        VoteManager.Instance?.ResetRoundVotes();
+
+        // Update start values for next round delta
+        if (VoteManager.Instance != null)
+        {
+            _player1VotesAtRoundStart = VoteManager.Instance.GetPlayer1Votes();
+            _player2VotesAtRoundStart = VoteManager.Instance.GetPlayer2Votes();
+            Debug.Log($"[RevealSequence] New round start values — P1: {_player1VotesAtRoundStart} | P2: {_player2VotesAtRoundStart}");
+        }
+
+        PickCompatibleCliques(); // only once
         ResetBallotsClientRpc();
         StartRivalTimerClientRpc();
 
-        // Return to exploration music after reveal
         AudioManager.Instance?.PlayMusic(AudioManager.MusicState.Exploration);
 
         Debug.Log($"Reveal phase ended — now on round {_currentRound.Value}");
+    }
+
+    private void CheckWinCondition()
+    {
+        // Add up all blue team votes across all rounds
+        int blueTotal = 0;
+        int redTotal = 0;
+
+        for (int r = 0; r < _totalRounds; r++)
+        {
+            blueTotal += _roundVotes[r, 0] + _roundVotes[r, 1]; // P1 + P2
+            redTotal += _roundVotes[r, 2] + _roundVotes[r, 3];  // R1 + R2
+        }
+
+        bool playersWon = blueTotal > redTotal;
+
+        Debug.Log($"[CheckWinCondition] Blue: {blueTotal} | Red: {redTotal} | Players won: {playersWon}");
+
+        if (GameOverManager.Instance != null)
+            GameOverManager.Instance.ShowGameOverClientRpc(playersWon);
     }
 
     [ClientRpc]
@@ -233,6 +374,18 @@ public class RoundManager : NetworkBehaviour
             if (!uiManager.IsOwner) continue;
             uiManager.SetRevealPanel(current);
         }
+    }
+
+    [ServerRpc]
+    public void ForceEndRoundServerRpc()
+    {
+        Debug.Log("[RoundManager] Round force ended by rival timer — no multiplier");
+
+        // Reset lock in state
+        _player1LockedIn.Value = false;
+        _player2LockedIn.Value = false;
+
+        StartCoroutine(RevealSequence(false)); // no multiplier
     }
 
     public bool IsRevealActive => _revealActive.Value;
