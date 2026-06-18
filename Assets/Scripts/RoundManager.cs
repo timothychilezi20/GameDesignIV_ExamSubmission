@@ -350,6 +350,7 @@ public class RoundManager : NetworkBehaviour
         }
     }
 
+
     // Passes multiplier state and compatible clique indices so
     // RevealPanelUI can highlight which cliques earned the bonus
     [ClientRpc]
@@ -439,6 +440,9 @@ public class RoundManager : NetworkBehaviour
     [ClientRpc]
     private void StartRivalTimerClientRpc()
     {
+        // Only the server should drive the timer state
+        if (!IsServer) return;
+
         RivalCoupleTimer rivalTimer = FindFirstObjectByType<RivalCoupleTimer>();
         if (rivalTimer != null)
             rivalTimer.StartNextRound();

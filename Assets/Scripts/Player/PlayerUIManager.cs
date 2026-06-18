@@ -56,6 +56,11 @@ public class PlayerUIManager : NetworkBehaviour
     {
         if (_playerNumber.Value != 0)
             ApplyUI(_playerNumber.Value);
+
+        PlayerCoupleBar bar = GetComponent<PlayerCoupleBar>()
+                   ?? GetComponentInChildren<PlayerCoupleBar>();
+        if (bar != null)
+            bar.BindToCollector(GetComponent<BallotCollector>());
     }
 
     public void ApplyUI(int playerNumber)

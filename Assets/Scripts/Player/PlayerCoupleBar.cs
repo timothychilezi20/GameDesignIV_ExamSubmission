@@ -1,84 +1,73 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
-using System.Collections.Generic;
 
 public class PlayerCoupleBar : NetworkBehaviour
 {
     [SerializeField] private Slider playerProgressBar;
-    [SerializeField] private int maxBallots = 20;
 
-    // Server-authoritative total — all clients read this to update their bar
-    private NetworkVariable<int> _totalBallots = new NetworkVariable<int>(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    // Instead of a fixed maxBallots, use round-based logic
+    [SerializeField] private int ballotsPerRound = 50;
+    [SerializeField] private int totalRounds = 3;
 
-    private List<BallotCollector> _collectors = new List<BallotCollector>();
-    private float _refreshInterval = 1f;
-    private float _refreshTimer = 0f;
+    private int maxBallots;
+    private BallotCollector _myCollector;
 
     public override void OnNetworkSpawn()
     {
+        // Calculate max ballots same way RivalCoupleTimer does
+        maxBallots = ballotsPerRound * totalRounds;
+
         playerProgressBar.minValue = 0;
         playerProgressBar.maxValue = maxBallots;
         playerProgressBar.value = 0;
 
-        // All clients subscribe so bar updates when server changes the value
-        _totalBallots.OnValueChanged += OnBallotsChanged;
+        if (!IsOwner) return;
 
-        // Force immediate bar update in case value already exists
-        playerProgressBar.value = _totalBallots.Value;
+        _myCollector = GetComponent<BallotCollector>()
+                    ?? GetComponentInParent<BallotCollector>()
+                    ?? GetComponentInChildren<BallotCollector>();
+
+        Debug.Log($"[PlayerCoupleBar] OnNetworkSpawn | collector found: {_myCollector != null}");
+
+        if (_myCollector != null)
+            Subscribe();
+    }
+
+    public void BindToCollector(BallotCollector collector)
+    {
+        if (collector == null || !IsOwner) return;
+
+        if (_myCollector != null)
+            _myCollector.BallotCountVar.OnValueChanged -= OnBallotsChanged;
+
+        _myCollector = collector;
+        Subscribe();
+
+        Debug.Log($"[PlayerCoupleBar] BindToCollector called | value: {_myCollector.BallotCountVar.Value}");
+    }
+
+    private void Subscribe()
+    {
+        // Match max ballots logic
+        playerProgressBar.maxValue = ballotsPerRound * totalRounds;
+
+        // Round ballots number like RivalCoupleTimer
+        playerProgressBar.value = Mathf.RoundToInt(_myCollector.BallotCountVar.Value);
+
+        _myCollector.BallotCountVar.OnValueChanged += OnBallotsChanged;
     }
 
     public override void OnNetworkDespawn()
     {
-        _totalBallots.OnValueChanged -= OnBallotsChanged;
+        if (_myCollector != null)
+            _myCollector.BallotCountVar.OnValueChanged -= OnBallotsChanged;
     }
 
     private void OnBallotsChanged(int previous, int current)
     {
-        playerProgressBar.value = current;
-    }
-
-    private void Update()
-    {
-        // Only server calculates and writes the total
-        if (!IsServer) return;
-
-        // Re-scan collectors on an interval instead of every frame
-        _refreshTimer += Time.deltaTime;
-        if (_refreshTimer >= _refreshInterval)
-        {
-            _refreshTimer = 0f;
-            RefreshCollectors();
-        }
-
-        // Tally ballots from all known collectors
-        int total = 0;
-        foreach (var collector in _collectors)
-        {
-            if (collector != null)
-                total += collector.GetBallotCount();
-        }
-
-        // Only write if changed — avoids unnecessary NetworkVariable traffic
-        if (total != _totalBallots.Value)
-            _totalBallots.Value = total;
-    }
-
-    private void RefreshCollectors()
-    {
-        _collectors.Clear();
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            var playerObj = client.PlayerObject;
-            if (playerObj == null) continue;
-
-            BallotCollector collector = playerObj.GetComponent<BallotCollector>();
-            if (collector != null)
-                _collectors.Add(collector);
-        }
+        int rounded = Mathf.RoundToInt(current);
+        Debug.Log($"[PlayerCoupleBar] {previous} â†’ {rounded}");
+        playerProgressBar.value = rounded;
     }
 }

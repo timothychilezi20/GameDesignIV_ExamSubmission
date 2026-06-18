@@ -289,5 +289,8 @@ public class BallotCollector : NetworkBehaviour
     public int GetArtistBallots() => _artistBallots.Value;
     public int GetNerdBallots() => _nerdBallots.Value;
     public int GetAthleteBallots() => _athleteBallots.Value;
+
+    public NetworkVariable<int> BallotCountVar => _ballotCount;
+    public int MaxBallots => _maxBallots;
 }
 
