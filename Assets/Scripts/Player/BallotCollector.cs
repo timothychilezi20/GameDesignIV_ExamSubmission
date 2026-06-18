@@ -6,7 +6,7 @@ using System.Collections;
 public class BallotCollector : NetworkBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private int _maxBallots = 10;
+    [SerializeField] private int _maxBallots = 25;
     [SerializeField] private float _interactCheckRadius = 3f;
     [SerializeField] private LayerMask _cliqueLayer;
 

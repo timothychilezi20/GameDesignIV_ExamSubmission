@@ -276,10 +276,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0fb544b8382239247bf53f23d5a444c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RivalCoupleTimer
+  ShowTopMostFoldoutHeaderGroup: 1
   rivalProgressBar: {fileID: 5243341282211148575}
   roundDuration: 120
   totalRounds: 3
-  collectionPhaseActive: 0
   ballotsPerRound: 50
 --- !u!1 &133933462236986086
 GameObject:
@@ -959,6 +959,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c313ddd6c06eac24da41f88397cab4da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCoupleBar
+  ShowTopMostFoldoutHeaderGroup: 1
   playerProgressBar: {fileID: 2144445806160314660}
   maxBallots: 50
 --- !u!1 &1310375242347826306
@@ -3233,7 +3234,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &8279912281870326978
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4576,7 +4577,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1892717290
+  GlobalObjectIdHash: 1783040293
   InScenePlacedSourceGlobalObjectIdHash: 1768924155
   DeferredDespawnTick: 0
   Ownership: 1
@@ -4626,7 +4627,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
-  m_Actions: {fileID: -944628639613478452, guid: 4142118d8a59814479777e58097e50ad, type: 3}
+  m_Actions: {fileID: 0}
   m_NotificationBehavior: 2
   m_UIInputModule: {fileID: 0}
   m_DeviceLostEvent:
@@ -4737,7 +4738,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BallotCollector
   ShowTopMostFoldoutHeaderGroup: 1
-  _maxBallots: 10
+  _maxBallots: 25
   _interactCheckRadius: 3
   _cliqueLayer:
     serializedVersion: 2
@@ -5424,7 +5425,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2020588404739335324
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5591,9 +5592,9 @@ RectTransform:
   m_Father: {fileID: 8279912281870326978}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchorMax: {x: 0.5, y: 0.5212963}
+  m_AnchoredPosition: {x: -820, y: -11.5}
+  m_SizeDelta: {x: 200, y: 27}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5090672223645293563
 CanvasRenderer:
@@ -5689,7 +5690,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: -84.783936, z: 0, w: -123.73126}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -5974,7 +5975,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 0/50
+  m_text: 0/25
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

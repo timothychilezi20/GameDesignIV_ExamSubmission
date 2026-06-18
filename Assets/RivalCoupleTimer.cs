@@ -1,22 +1,41 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Unity.Netcode;
 
-public class RivalCoupleTimer : MonoBehaviour
+public class RivalCoupleTimer : NetworkBehaviour
 {
     public Slider rivalProgressBar;
     public float roundDuration = 120f;
     public int totalRounds = 3;
-    private int currentRound = 0;
-    private float elapsedTime;
-    public bool collectionPhaseActive = false;
 
     [SerializeField] private int ballotsPerRound = 50;
+
     private float ballotsPerSecond;
     private int maxBallots;
+    private bool _tutorialShown = false;
+
+    // Server-authoritative state
+    private NetworkVariable<float> _syncedElapsed = new NetworkVariable<float>(
+        0f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<int> _currentRound = new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> _collectionPhaseActive = new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     private bool _roundEndedByTimer = false;
 
-    void Start()
+    public override void OnNetworkSpawn()
     {
         maxBallots = ballotsPerRound * totalRounds;
         ballotsPerSecond = (float)ballotsPerRound / roundDuration;
@@ -25,54 +44,90 @@ public class RivalCoupleTimer : MonoBehaviour
         rivalProgressBar.maxValue = maxBallots;
         rivalProgressBar.value = 0;
 
-        // Don't call StartNextRound here — initialise directly
-        elapsedTime = 0;
-        collectionPhaseActive = true;
-        _roundEndedByTimer = false;
-        Debug.Log("Round 1 started!");
+        if (IsServer)
+        {
+            _syncedElapsed.Value = 0f;
+            _currentRound.Value = 0;
+            _collectionPhaseActive.Value = true;
+            _roundEndedByTimer = false;
+            Debug.Log("[RivalCoupleTimer] Server initialised.");
+        }
+
+        // No OnValueChanged subscriptions needed anymore
+        Debug.Log($"[RivalCoupleTimer] OnNetworkSpawn — IsServer:{IsServer} IsClient:{IsClient}");
     }
 
+    public override void OnNetworkDespawn()
+    {
+       
+    }
+
+    private void OnElapsedTimeChanged(float previous, float current)
+    {
+        Debug.Log($"[RivalCoupleTimer] OnElapsedTimeChanged fired — IsServer:{IsServer} " +
+                  $"prev:{previous:F2} curr:{current:F2}");
+        UpdateProgressBar(current);
+    }
+
+    private void OnRoundChanged(int previous, int current)
+    {
+        Debug.Log($"[RivalCoupleTimer] OnRoundChanged fired — IsServer:{IsServer} " +
+                  $"prev:{previous} curr:{current}");
+        UpdateProgressBar(_syncedElapsed.Value);
+    }
+
+    private void UpdateProgressBar(float elapsed)
+    {
+        float roundBallots = Mathf.Min(elapsed * ballotsPerSecond, ballotsPerRound);
+        float newValue = (_currentRound.Value * ballotsPerRound) + roundBallots;
+
+        Debug.Log($"[RivalCoupleTimer] UpdateProgressBar — IsServer:{IsServer} " +
+                  $"elapsed:{elapsed:F2} roundBallots:{roundBallots:F2} barValue:{newValue:F2}");
+
+        rivalProgressBar.value = newValue;
+    }
     void Update()
     {
-        // Tutorial trigger at 50% of round 1
-        if (currentRound == 0 && elapsedTime >= roundDuration * 0.5f)
-            TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.RivalGoal);
-
-        if (!collectionPhaseActive || currentRound >= totalRounds) return;
-
-        elapsedTime += Time.deltaTime;
-
-        float roundBallots = Mathf.Min(elapsedTime * ballotsPerSecond, ballotsPerRound);
-        rivalProgressBar.value = (currentRound * ballotsPerRound) + roundBallots;
-
-        if (elapsedTime >= roundDuration && !_roundEndedByTimer)
+        if (!_tutorialShown && _currentRound.Value == 0 && _syncedElapsed.Value >= roundDuration * 0.5f)
         {
-            _roundEndedByTimer = true;
-            elapsedTime = roundDuration;
-            rivalProgressBar.value = (currentRound * ballotsPerRound) + ballotsPerRound;
-            collectionPhaseActive = false;
-
-            Debug.Log($"Round {currentRound + 1} timer ended at {rivalProgressBar.value} ballots!");
-
-            // Force end the round — RoundManager will call StartNextRound via ClientRpc
-            if (RoundManager.Instance != null)
-                RoundManager.Instance.ForceEndRoundServerRpc();
-
-            // Don't increment currentRound here — StartNextRound handles it
+            _tutorialShown = true;
+            TutorialManager.Instance?.ShowPrompt(TutorialManager.TutorialType.RivalGoal);
         }
+
+        if (IsServer)
+        {
+            if (!_collectionPhaseActive.Value || _currentRound.Value >= totalRounds) return;
+
+            _syncedElapsed.Value += Time.deltaTime;
+
+            if (_syncedElapsed.Value >= roundDuration && !_roundEndedByTimer)
+            {
+                _roundEndedByTimer = true;
+                _syncedElapsed.Value = roundDuration;
+                _collectionPhaseActive.Value = false;
+
+                Debug.Log($"[RivalCoupleTimer] Round {_currentRound.Value + 1} ended!");
+
+                if (RoundManager.Instance != null)
+                    RoundManager.Instance.ForceEndRoundServerRpc();
+            }
+        }
+
+        UpdateProgressBar(_syncedElapsed.Value);
     }
 
     public void StartNextRound()
     {
-        // Only called by RoundManager after a round ends
-        currentRound++;
+        if (!IsServer) return;
 
-        if (currentRound < totalRounds)
+        _currentRound.Value++;
+
+        if (_currentRound.Value < totalRounds)
         {
-            elapsedTime = 0;
-            collectionPhaseActive = true;
+            _syncedElapsed.Value = 0f;       
+            _collectionPhaseActive.Value = true;
             _roundEndedByTimer = false;
-            Debug.Log($"Round {currentRound + 1} started!");
+            Debug.Log($"Round {_currentRound.Value + 1} started!");
         }
         else
         {
@@ -80,9 +135,18 @@ public class RivalCoupleTimer : MonoBehaviour
         }
     }
 
+    // Called on server only — scores are calculated from authoritative state
     public void GetRoundScores(out int rival1Score, out int rival2Score)
     {
-        float roundBallots = Mathf.Min(elapsedTime * ballotsPerSecond, ballotsPerRound);
+        if (!IsServer)
+        {
+            Debug.LogWarning("GetRoundScores called on a client — returning zeros.");
+            rival1Score = 0;
+            rival2Score = 0;
+            return;
+        }
+
+        float roundBallots = Mathf.Min(_syncedElapsed.Value * ballotsPerSecond, ballotsPerRound);
         int total = Mathf.RoundToInt(roundBallots);
         rival1Score = total / 2;
         rival2Score = total - rival1Score;
@@ -94,5 +158,5 @@ public class RivalCoupleTimer : MonoBehaviour
         Debug.Log($"Reveal Phase: Rival Couple currently has {ballots} ballots!");
     }
 
-    public int GetCurrentRound() => currentRound;
+    public int GetCurrentRound() => _currentRound.Value;
 }
